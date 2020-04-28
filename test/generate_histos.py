@@ -74,6 +74,7 @@ list_histos = ["h_Mmumu", "h_Mee","h_Mmue", "h_lep1pt",
                "h_lep2pt", "h_lep1eta", "h_lep2eta", "h_lep1phi",
                "h_lep2phi", "h_njets25", "h_met_sumEt",
                "h_met_pt", "h_jetptmax", "h_npvs", "h_nbjets25",
+               "h_btagid", "h_njets25dr", "h_jetlep1dr", "h_jetlep2dr",
                "h_cuts"]
 
 h_base[list_histos[0]]  = ROOT.TH1F(list_histos[0], "M_{#mu#mu}", 50, 75., 110.)
@@ -91,7 +92,11 @@ h_base[list_histos[11]] = ROOT.TH1F(list_histos[11], "MET pt puppi", 30, 0., 50.
 h_base[list_histos[12]] = ROOT.TH1F(list_histos[12], "p_{T} of the hardest jet", 40, 30., 100.)
 h_base[list_histos[13]] = ROOT.TH1F(list_histos[13], "pile up",75,0,75)
 h_base[list_histos[14]] = ROOT.TH1F(list_histos[14], "N_{bjets} above 25 GeV", 10, 0, 10.)
-h_base[list_histos[15]] = ROOT.TH1F(list_histos[15], "Cut flow", 10, 0, 10.)
+h_base[list_histos[15]] = ROOT.TH1F(list_histos[15], "bJet DeepB Value of Highest pT Jet", 100, -1., 1.)
+h_base[list_histos[16]] = ROOT.TH1F(list_histos[16], "N_{jets} above 25 GeV and #DeltaR > 0.3 from leptons", 10, 0, 10.)
+h_base[list_histos[17]] = ROOT.TH1F(list_histos[17], "hardest jet #DeltaR from lepton 1", 60, 0, 6.)
+h_base[list_histos[18]] = ROOT.TH1F(list_histos[18], "hardest jet #DeltaR from lepton 2", 60, 0, 6.)
+h_base[list_histos[19]] = ROOT.TH1F(list_histos[19], "Cut flow", 10, 0, 10.)
 
 ##Open the output
 fOut = ROOT.TFile(output_filename,"RECREATE")
@@ -138,6 +143,12 @@ nentries = mytree.GetEntriesFast()
 lep1_FourMom = ROOT.TLorentzVector()
 lep2_FourMom = ROOT.TLorentzVector()
 
+muon_ptmin = 25.
+electron_ptmin = 33.
+
+# whether or not to reject jets overlapping with the e/mu
+jet_delta_r_cut = True
+
 print "This sample has ", mytree.GetEntriesFast(), " events"
 
 for jentry in xrange(nentries):
@@ -164,7 +175,8 @@ for jentry in xrange(nentries):
         lep2_eta = mytree.Muon_eta[1]
         lep2_phi = mytree.Muon_phi[1]
         lep2_mass = mytree.Muon_mass[1]
-
+        if doFullSel and (lep1_pt < muon_ptmin or lep2_pt < muon_ptmin) :
+            continue
     elif mytree.nElectron == 2 :
 
         lep1_pt = mytree.Electron_pt[0]
@@ -176,6 +188,8 @@ for jentry in xrange(nentries):
         lep2_eta = mytree.Electron_eta[1]
         lep2_phi = mytree.Electron_phi[1]
         lep2_mass = mytree.Electron_mass[1]
+        if doFullSel and (lep1_pt < electron_ptmin or lep2_pt < electron_ptmin) :
+            continue
 
     else :
 
@@ -188,33 +202,49 @@ for jentry in xrange(nentries):
         lep2_eta = mytree.Electron_eta[0]
         lep2_phi = mytree.Electron_phi[0]
         lep2_mass = mytree.Electron_mass[0]
+        if doFullSel and (lep1_pt < muon_ptmin or lep2_pt < electron_ptmin) :
+            continue
 
     lep1_FourMom.SetPtEtaPhiM(lep1_pt,lep1_eta,lep1_phi,lep1_mass)
     lep2_FourMom.SetPtEtaPhiM(lep2_pt,lep2_eta,lep2_phi,lep2_mass)
     Zcand_FourMom = lep1_FourMom + lep2_FourMom
 
-    if not mytree.Electron_mvaFall17V2Iso_WP80[0] :  #FIXME
+    if hasattr(mytree, 'Electron_mvaFall17V2Iso_WP80') and not mytree.Electron_mvaFall17V2Iso_WP80[0] :  #FIXME
         continue
 
+    jet_FourMom = ROOT.TLorentzVector()
     njets_25  = 0
+    njets_25_dr = 0
     nbjets_25 = 0
     jetptmax  = 0.
+    jetbtag   = -2. #btag score for highest pT jet
+    jetlep1dr = -1.
+    jetlep2dr = -1.
     for jetcount in xrange(mytree.nJet) :
 
         if mytree.Jet_jetId[jetcount] < jetIdflag :
             continue
 
         pt_of_jet = mytree.Jet_pt[jetcount]
-
+        jet_FourMom.SetPtEtaPhiM(pt_of_jet, mytree.Jet_eta[jetcount],
+                                 mytree.Jet_phi[jetcount], mytree.Jet_mass[jetcount])
 #        if pt_of_jet < 50. :    FIXME
 #            if mytree.Jet_puId[jetcount] < jetPUIdflag :
 #                continue
 
         if pt_of_jet > 25. :
+            jetlep1deltar = lep1_FourMom.DeltaR(jet_FourMom)
+            jetlep2deltar = lep2_FourMom.DeltaR(jet_FourMom)
             if pt_of_jet > jetptmax :
                 jetptmax = pt_of_jet
-            njets_25 = njets_25 + 1    
-            if hasattr(mytree, 'Jet_btagDeepB') and mytree.Jet_btagDeepB > 0.4184 :
+                if hasattr(mytree, 'Jet_btagDeepB') :
+                    jetbtag = mytree.Jet_btagDeepB[jetcount]
+                jetlep1dr = jetlep1deltar
+                jetlep2dr = jetlep2deltar
+            if jetlep1deltar > 0.3 and jetlep2deltar > 0.3 :
+                njets_25_dr = njets_25_dr + 1
+            njets_25 = njets_25 + 1
+            if hasattr(mytree, 'Jet_btagDeepB') and mytree.Jet_btagDeepB[jetcount] > 0.4184 :
                 nbjets_25 = nbjets_25 + 1
         #End jet loop
     if nbjets_25 > 0 and doFullSel :
@@ -262,7 +292,9 @@ for jentry in xrange(nentries):
 
         ############### Multiply weights and SFs for MC. Set weight to 1 for data ###############
         MC_Weight = mytree.genWeight
-        PU_Weight = mytree.puWeight # Add Pile Up weight
+        PU_Weight = 1.
+        if hasattr(mytree, 'puWeight') :
+            PU_Weight = mytree.puWeight # Add Pile Up weight
 
         Event_Weight = norm_factor*MC_Weight*PU_Weight/math.fabs(MC_Weight) # Just take the sign of the gen weight
         Event_Weight = Event_Weight*lep1_weight*lep2_weight
@@ -299,8 +331,12 @@ for jentry in xrange(nentries):
             h_base["h_lep2phi"].Fill(lep2_phi,Event_Weight)
 
             h_base["h_njets25"].Fill(njets_25,Event_Weight)
+            h_base["h_njets25dr"].Fill(njets_25_dr,Event_Weight)
             h_base["h_nbjets25"].Fill(nbjets_25,Event_Weight)
+            h_base["h_btagid"].Fill(jetbtag,Event_Weight)
             h_base["h_met_sumEt"].Fill(met_sumEt_puppi,Event_Weight)
+            h_base["h_jetlep1dr"].Fill(jetlep1dr,Event_Weight)
+            h_base["h_jetlep2dr"].Fill(jetlep2dr,Event_Weight)
 
             h_base["h_npvs"].Fill(nPV,Event_Weight)
 
