@@ -16,12 +16,16 @@ keep Jet_phi
 keep Jet_mass
 keep Jet_jetId
 keep Jet_puId
+keep Jet_btagDeepB
+keep Jet_btagCMVA
 keep HLT_IsoMu24
 keep HLT_IsoMu27
 keep HLT_Mu50
 keep HLT_Ele27_WPTight_Gsf*
 keep HLT_Ele32_WPTight_Gsf*
+keep Electron_mvaFall17V2Iso_WP80
 keep genWeight*
+keep puWeight*
 keep PuppiMET*
 keep PV_npvs*
 

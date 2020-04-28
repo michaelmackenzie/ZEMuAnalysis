@@ -70,7 +70,11 @@ Norm_Map = myWF.get_normalizations_map(runningEra)
 ##Get the handlers for all the histos and graphics
 h_base  = dict()
 
-list_histos = ["h_Mmumu", "h_Mee","h_Mmue", "h_lep1pt", "h_lep2pt", "h_lep1eta", "h_lep2eta", "h_lep1phi", "h_lep2phi", "h_njets25", "h_met_sumEt", "h_met_pt", "h_jetptmax", "h_npvs"]
+list_histos = ["h_Mmumu", "h_Mee","h_Mmue", "h_lep1pt",
+               "h_lep2pt", "h_lep1eta", "h_lep2eta", "h_lep1phi",
+               "h_lep2phi", "h_njets25", "h_met_sumEt",
+               "h_met_pt", "h_jetptmax", "h_npvs", "h_nbjets25",
+               "h_cuts"]
 
 h_base[list_histos[0]]  = ROOT.TH1F(list_histos[0], "M_{#mu#mu}", 50, 75., 110.)
 h_base[list_histos[1]]  = ROOT.TH1F(list_histos[1], "M_{ee}", 50, 75., 110.)
@@ -86,6 +90,8 @@ h_base[list_histos[10]] = ROOT.TH1F(list_histos[10], "MET sumEt puppi", 100, 0.,
 h_base[list_histos[11]] = ROOT.TH1F(list_histos[11], "MET pt puppi", 30, 0., 50.)
 h_base[list_histos[12]] = ROOT.TH1F(list_histos[12], "p_{T} of the hardest jet", 40, 30., 100.)
 h_base[list_histos[13]] = ROOT.TH1F(list_histos[13], "pile up",75,0,75)
+h_base[list_histos[14]] = ROOT.TH1F(list_histos[14], "N_{bjets} above 25 GeV", 10, 0, 10.)
+h_base[list_histos[15]] = ROOT.TH1F(list_histos[15], "Cut flow", 10, 0, 10.)
 
 ##Open the output
 fOut = ROOT.TFile(output_filename,"RECREATE")
@@ -113,6 +119,7 @@ tree_signalreg.Branch('mcweight',_mcweight,'mcweight/D')
 tree_signalreg.Branch('lep1pt',_lep1pt,'lep1pt/D')
 tree_signalreg.Branch('lep2pt',_lep2pt,'lep2pt/D')
 
+print "Processing Sample ", sample_name
 ##Loop on events
 if not isData:
     norm_factor = Norm_Map[sample_name]*luminosity_norm
@@ -120,7 +127,6 @@ if not isData:
     
 root_file = ROOT.TFile(input_filename)
 mytree = root_file.Get("Events")
-print "Processing Sample ", sample_name
 
 Nevts_per_sample   = 0. # Count the number of events in input per each sample processed
 Nevts_selected     = 0. # Count the number of events survived per each sample processed
@@ -190,8 +196,9 @@ for jentry in xrange(nentries):
     if not mytree.Electron_mvaFall17V2Iso_WP80[0] :  #FIXME
         continue
 
-    njets_25 = 0
-    jetptmax = 26.
+    njets_25  = 0
+    nbjets_25 = 0
+    jetptmax  = 0.
     for jetcount in xrange(mytree.nJet) :
 
         if mytree.Jet_jetId[jetcount] < jetIdflag :
@@ -203,17 +210,21 @@ for jentry in xrange(nentries):
 #            if mytree.Jet_puId[jetcount] < jetPUIdflag :
 #                continue
 
-        if pt_of_jet > jetptmax :
-            jetptmax = pt_of_jet
         if pt_of_jet > 25. :
+            if pt_of_jet > jetptmax :
+                jetptmax = pt_of_jet
             njets_25 = njets_25 + 1    
-
+            if hasattr(mytree, 'Jet_btagDeepB') and mytree.Jet_btagDeepB > 0.4184 :
+                nbjets_25 = nbjets_25 + 1
+        #End jet loop
+    if nbjets_25 > 0 and doFullSel :
+        continue
     met_pt_puppi = mytree.PuppiMET_pt
     met_sumEt_puppi = mytree.PuppiMET_sumEt
 
-    jetsel = jetptmax < 65.
-    metsel = met_pt_puppi < 27.
-    select_bool = (doFullSel and jetsel and metsel) or not doFullSel
+    jetsel = jetptmax < 78.
+    metsel = met_pt_puppi < 28.
+    select_bool = (jetsel and metsel) or not doFullSel
 
     if select_bool :
         Nevts_selected = Nevts_selected + 1
@@ -288,6 +299,7 @@ for jentry in xrange(nentries):
             h_base["h_lep2phi"].Fill(lep2_phi,Event_Weight)
 
             h_base["h_njets25"].Fill(njets_25,Event_Weight)
+            h_base["h_nbjets25"].Fill(nbjets_25,Event_Weight)
             h_base["h_met_sumEt"].Fill(met_sumEt_puppi,Event_Weight)
 
             h_base["h_npvs"].Fill(nPV,Event_Weight)
@@ -298,7 +310,12 @@ for jentry in xrange(nentries):
             h_base["h_jetptmax"].Fill(jetptmax,Event_Weight)
         if select_bool or (jetsel and not select_bool) :
             h_base["h_met_pt"].Fill(met_pt_puppi,Event_Weight)
-
+        if jetsel :
+            h_base["h_cuts"].Fill(1,Event_Weight)
+        if metsel :
+            h_base["h_cuts"].Fill(2,Event_Weight)
+        if nbjets_25 < 1 :
+            h_base["h_cuts"].Fill(3,Event_Weight)
 
 fOut.cd()
 for hist_name in list_histos:

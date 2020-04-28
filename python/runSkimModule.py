@@ -17,7 +17,7 @@ class exampleProducer(Module):
         pass
     def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         self.out = wrappedOutputTree
-        self.out.branch("M_ll",  "F");
+        self.out.branch("M_ll" ,  "F"); # di-lepton mass
     def endFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         pass
     def analyze(self, event):
@@ -29,15 +29,25 @@ class exampleProducer(Module):
         jets = Collection(event, "Jet")
         PuppiMET = Object(event, "PuppiMET")
 
-        minmupt = 28.
-        minelept = 33.
-        jetIdflag = 4
+        # sparsing parameters
+        minmupt     = 25.
+        minelept    = 33.
+        jetIdflag   = 4
         jetPUIdflag = 6
-
+        maxMET      = 50.
+        maxJetPt    = 100.
+        minLepM     = 75.
+        maxLepM     = 110.
+        cutBJets    = False
+        
+        # selection parameters
+        maxJetPt_s = 78.
+        maxMET_s   = 28.
+        
         if self.runningEra == 0 :
             jetIdflag = 7
 
-        if PuppiMET.pt > 50. :
+        if PuppiMET.pt > maxMET :
             return False
 
         if self.runningEra == 0 :
@@ -49,7 +59,7 @@ class exampleProducer(Module):
                 return False
 
         elif self.runningEra == 2 :
-            if not (HLT.IsoMu24 or HLT.Mu50or HLT.Ele32_WPTight_Gsf) :
+            if not (HLT.IsoMu24 or HLT.Mu50 or HLT.Ele32_WPTight_Gsf) :
                 return False
 
         if (len(electrons) + len(muons) != 2) :
@@ -57,7 +67,7 @@ class exampleProducer(Module):
 
         if len(muons) == 2 :
             lep_mass = (muons[0].p4() + muons[1].p4()).M() 
-            if (lep_mass < 75. or lep_mass > 110.) :
+            if (lep_mass < minLepM or lep_mass > maxLepM) :
                 return False
             if ( muons[0].charge * muons[1].charge > 0 ) :
                 return False
@@ -72,7 +82,7 @@ class exampleProducer(Module):
 
         elif len(electrons) == 2 :
             lep_mass = (electrons[0].p4() + electrons[1].p4()).M()
-            if (lep_mass < 75. or lep_mass > 110.) :
+            if (lep_mass < minLepM or lep_mass > maxLepM) :
                 return False
             if ( electrons[0].charge * electrons[1].charge > 0 ) :
                 return False
@@ -87,11 +97,11 @@ class exampleProducer(Module):
                 return False
 
             if electrons[0].pt < minelept or electrons[1].pt < minelept :
-                    return False
+                return False
 
         else :
             lep_mass = (muons[0].p4() + electrons[0].p4()).M()
-            if (lep_mass < 75. or lep_mass > 110.) :
+            if (lep_mass < minLepM or lep_mass > maxLepM) :
                 return False
             if ( muons[0].charge * electrons[0].charge > 0 ) :
                 return False
@@ -108,31 +118,29 @@ class exampleProducer(Module):
             if muons[0].pt < minmupt or electrons[0].pt < minelept :
                 return False
 
-        nbjets_25 = 0
-        jetptmax = -1.
+
+        jetptmax  = -1.
         for jetcount in xrange(len(jets)) :
             if jets[jetcount].jetId < jetIdflag :
                 continue
             pt_of_jet = jets[jetcount].pt
-
-            if pt_of_jet < 50. :
-                if jets[jetcount].puId < jetPUIdflag :
-                    continue
+            if pt_of_jet < 50. and jets[jetcount].puId < jetPUIdflag :
+                continue
 
             if pt_of_jet > jetptmax :
                 jetptmax = pt_of_jet
-            if pt_of_jet > 25. and jets[jetcount].btagDeepB > 0.4184 :   #medium
-                nbjets_25 = nbjets_25 + 1
-        if nbjets_25 > 0 or jetptmax > 100.:
-            return False
+                if jetptmax > maxJetPt :
+                    return False
+            if cutBJets and pt_of_jet > 25. and jets[jetcount].btagDeepB > 0.4184 :   #medium
+                return False
 
-        #it it's the same flavor channel, just save the full selection to spare space and CPU
+        #if it's the same flavor channel, just save the full selection to spare space and CPU
         if len(muons) == 2 or len(electrons) == 2 :
-            if jetptmax > 65. or PuppiMET.pt > 27. :
+            if jetptmax > maxJetPt_s or PuppiMET.pt > maxMET_s :
                 return False
 
 
-        self.out.fillBranch("M_ll",lep_mass)
+        self.out.fillBranch("M_ll", lep_mass)
 
         return True
 
