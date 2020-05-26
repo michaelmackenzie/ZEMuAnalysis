@@ -1,0 +1,15 @@
+#log/temporary files
+*.log
+*.tmp
+*~
+*#*
+
+#root files
+*.root
+*.tree
+*.hist
+
+#compiled files
+*.o
+*.pyc
+

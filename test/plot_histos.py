@@ -27,7 +27,13 @@ hdata   = dict()
 canvas  = dict()
 histo_container = [] #just for memory management
 
-list_histos = ["h_Mmumu", "h_Mee","h_Mmue", "h_lep1pt", "h_lep2pt", "h_lep1eta", "h_lep2eta", "h_lep1phi", "h_lep2phi", "h_njets25", "h_met_sumEt","h_met_pt","h_jetptmax","h_npvs"]
+list_histos = ["h_Mmumu", "h_Mee","h_Mmue", "h_lep1pt",
+               "h_lep2pt", "h_lep1eta", "h_lep2eta", "h_lep1phi",
+               "h_lep2phi", "h_njets25", "h_met_sumEt",
+               "h_met_pt", "h_jetptmax", "h_npvs", "h_nbjets25",
+               "h_btagid", "h_njets25dr", "h_jetlep1dr", "h_jetlep2dr",
+               "h_leppt", "h_lepptoverm", "h_lep1weight", "h_lep2weight",
+               "h_cuts"]
 
 for hname in list_histos:
     hstack[hname] = ROOT.THStack("hstack_" + hname,"")
@@ -62,7 +68,7 @@ for filename in list_inputfiles:
     sample_name = filename.split("_")[2]
     for histo_name in list_histos:
         histo = fileIn.Get(histo_name)
-
+        
         if histo_name == "h_Mmue" :
             histo.Rebin(2)
 
@@ -137,6 +143,12 @@ for histo_name in list_histos:
     if histo_name == "h_Mmue":
         hstack[histo_name].GetXaxis().SetTitle("m_{#mu e} (GeV)")
     
+    if histo_name == "h_leppt":
+        hstack[histo_name].GetXaxis().SetTitle("p_{T,ll} (GeV)")
+
+    if histo_name == "h_lepptoverm":
+        hstack[histo_name].GetXaxis().SetTitle("p_{T,ll}/M_{ll}")
+        
     if histo_name == "h_lep1pt":
         hstack[histo_name].GetXaxis().SetTitle("p_{T,l1} (GeV)")
 

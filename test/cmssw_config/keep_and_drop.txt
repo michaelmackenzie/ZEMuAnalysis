@@ -5,11 +5,15 @@ keep Electron_eta
 keep Electron_phi
 keep Electron_mass
 keep Electron_deltaEtaSC
+keep Electron_dxy*
+keep Electron_dz*
 keep Muon_pt
 keep Muon_eta
 keep Muon_phi
 keep Muon_mass
 keep Muon_pfRelIso03_all
+keep Muon_dxy*
+keep Muon_dz*
 keep Jet_pt
 keep Jet_eta
 keep Jet_phi
@@ -27,5 +31,9 @@ keep Electron_mvaFall17V2Iso_WP80
 keep genWeight*
 keep puWeight*
 keep PuppiMET*
+keep MET_pt
+keep MET_phi
+keep MET_cov*
+keep MET_sumET
 keep PV_npvs*
 
