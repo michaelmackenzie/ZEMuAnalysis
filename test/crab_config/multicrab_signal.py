@@ -1,5 +1,5 @@
-from WMCore.Configuration import Configuration
 from CRABClient.UserUtilities import config
+from WMCore.Configuration import Configuration
 config = Configuration()
 
 config.section_('General')
@@ -19,9 +19,11 @@ config.Data.inputDBS = 'phys03'
 config.Data.splitting = 'FileBased'
 config.Data.unitsPerJob = 5
 config.Data.publication = False
+config.Data.outputDatasetTag = None
+config.Data.outLFNDirBase = '/store/user/mimacken/zemu_nanoaod/'
 
 config.section_('Site')
-config.Site.storageSite = 'T2_IT_Legnaro'
+config.Site.storageSite = 'T3_US_FNALLPC' # Choose your site. 
 
 if __name__ == '__main__':
 
@@ -47,18 +49,18 @@ if __name__ == '__main__':
     p.start()
     p.join()
 
-    config.JobType.scriptArgs = ['isData=MC','year=2017']
-    config.General.workArea = 'crab_projects/samples_MC_2017/'
-    config.General.requestName = '2017_ZEMuAnalysis_Signal'
-    config.Data.inputDataset = '/ZEMuAnalysis_2017_1064V1/pellicci-ZEMuAnalysis_NANOAOD_2017_1064V1-b8e5db6dc58e02fa065eca4e059912ff/USER'
-    p = Process(target=submit, args=(config,))
-    p.start()
-    p.join()
+    # config.JobType.scriptArgs = ['isData=MC','year=2017']
+    # config.General.workArea = 'crab_projects/samples_MC_2017/'
+    # config.General.requestName = '2017_ZEMuAnalysis_Signal'
+    # config.Data.inputDataset = '/ZEMuAnalysis_2017_1064V1/pellicci-ZEMuAnalysis_NANOAOD_2017_1064V1-b8e5db6dc58e02fa065eca4e059912ff/USER'
+    # p = Process(target=submit, args=(config,))
+    # p.start()
+    # p.join()
 
-    config.JobType.scriptArgs = ['isData=MC','year=2018']
-    config.General.workArea = 'crab_projects/samples_MC_2018/'
-    config.General.requestName = '2018_ZEMuAnalysis_Signal'
-    config.Data.inputDataset = '/ZEMuAnalysis_10218V2/pellicci-ZEMuAnalysis_NANOAOD_10218V1-a7880b551d3b12f0ed185e04212304eb/USER'
-    p = Process(target=submit, args=(config,))
-    p.start()
-    p.join()
+    # config.JobType.scriptArgs = ['isData=MC','year=2018']
+    # config.General.workArea = 'crab_projects/samples_MC_2018/'
+    # config.General.requestName = '2018_ZEMuAnalysis_Signal'
+    # config.Data.inputDataset = '/ZEMuAnalysis_10218V2/pellicci-ZEMuAnalysis_NANOAOD_10218V1-a7880b551d3b12f0ed185e04212304eb/USER'
+    # p = Process(target=submit, args=(config,))
+    # p.start()
+    # p.join()

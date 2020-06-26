@@ -1,8 +1,8 @@
-from WMCore.Configuration import Configuration
 from CRABClient.UserUtilities import config
+from WMCore.Configuration import Configuration
 config = Configuration()
 
-runningEra = 1 # 0 = 2016, 1 = 2017, 2 = 2018
+runningEra = 0 # 0 = 2016, 1 = 2017, 2 = 2018
 
 config.section_('General')
 config.General.transferLogs = True
@@ -37,9 +37,10 @@ config.Data.inputDBS = 'global'
 config.Data.splitting = 'FileBased'
 config.Data.unitsPerJob = 1
 config.Data.publication = False
+config.Data.outLFNDirBase = '/store/user/mimacken/zemu_nanoaod/'
 
 config.section_('Site')
-config.Site.storageSite = 'T2_IT_Legnaro'
+config.Site.storageSite = 'T3_US_FNALLPC' # Choose your site. 
 config.Site.blacklist = ['T2_DE_DESY']
 
 if __name__ == '__main__':

@@ -11,7 +11,7 @@ fElEl = ROOT.TFile("workspaces/fit_Mll_SameSign_Electron_Combined.root")
 ws_elel = fElEl.Get("ws")
 
 
-fSignal = ROOT.TFile("trees/ZEMuAnalysis_Signal_Combined.root")
+fSignal = ROOT.TFile("trees/ZEMuAnalysis_Signal_2016.root")
 signal_tree = fSignal.Get("signaltree")
 
 M_ll = ROOT.RooRealVar("M_ll","M_ll",75.,110.)

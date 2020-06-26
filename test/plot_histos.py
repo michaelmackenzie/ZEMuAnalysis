@@ -7,7 +7,7 @@ ROOT.gROOT.SetBatch(True)
 
 runningEra = int(sys.argv[1])
 signal_magnify = int(sys.argv[2])
-
+verbose = 0
 list_inputfiles = []
 for filename in sys.argv[3:]:
     list_inputfiles.append(filename)
@@ -61,16 +61,26 @@ leg1.SetLineColor(1)
 leg1.SetLineStyle(1)
 leg1.SetLineWidth(1)
 leg1.SetFillStyle(1001)
+dict_mc_totals   = dict()
+dict_sig_totals  = dict()
+dict_data_totals = dict()
 
 for filename in list_inputfiles:
-    fileIn = ROOT.TFile(filename)
+    fileIn = ROOT.TFile(filename, "READ")
+    if verbose > 1 :
+        print filename
 
     sample_name = filename.split("_")[2]
     for histo_name in list_histos:
+        if not dict_mc_totals.has_key(histo_name) :
+            dict_mc_totals[histo_name]   = 0.
+            dict_sig_totals[histo_name]  = 0.
+            dict_data_totals[histo_name] = 0.
+
         histo = fileIn.Get(histo_name)
         
-        if histo_name == "h_Mmue" :
-            histo.Rebin(2)
+        # if histo_name == "h_Mmue" :
+        #     histo.Rebin(2)
 
         # Set to 0 the bins containing negative values, due to negative weights
         hsize = histo.GetSize() - 2 # GetSize() returns the number of bins +2 (that is + overflow + underflow) 
@@ -86,16 +96,20 @@ for filename in list_inputfiles:
             histo_container[-1].SetLineColor(2)   #red
             histo_container[-1].SetLineWidth(4)   #kind of thick
             hsignal[histo_name] = histo_container[-1]
+            dict_sig_totals[histo_name] = histo.Integral(0, histo.GetNbinsX()+1) + dict_sig_totals[histo_name]
         elif "Data" in sample_name:
             histo_container[-1].SetMarkerStyle(20)   #point
             hdata[histo_name] = histo_container[-1]
+            dict_data_totals[histo_name] = histo.Integral(0, histo.GetNbinsX()+1) + dict_data_totals[histo_name]
         else:
             histo_container[-1].SetFillColor(colors_mask[sample_name])
             hstack[histo_name].Add(histo_container[-1])
-
+            dict_mc_totals[histo_name] = histo.Integral(0, histo.GetNbinsX()+1) + dict_mc_totals[histo_name]
+        if verbose > 1 :
+            print histo_name, histo.Integral(0, histo.GetNbinsX()+1)
         if histo_name == "h_Mmue": #Add the legend only once
 
-            if histo.Integral() > float(signal_magnify)/12. or sample_name == "Signal": #Only plot in the legend those samples which have some contribution
+            if histo.Integral(0,histo.GetNbinsX()+1) > float(signal_magnify)/12. or sample_name == "Signal": #Only plot in the legend those samples which have some contribution
                 if not sample_name == "Data" and not sample_name == "Signal":
                     leg1.AddEntry(histo_container[-1],sample_name,"f")
                 elif sample_name == "Data":
@@ -106,6 +120,11 @@ for filename in list_inputfiles:
     fileIn.Close()
 
 for histo_name in list_histos:
+    if verbose > 0 and dict_mc_totals[histo_name] > 0. :
+        print histo_name, ": sig =", dict_sig_totals[histo_name], \
+            "mc =", dict_mc_totals[histo_name], \
+            "data =", dict_data_totals[histo_name], \
+            "data/MC =", dict_data_totals[histo_name]/dict_mc_totals[histo_name]
 
     canvas[histo_name] = ROOT.TCanvas("Cavas_" + histo_name,"",200,106,600,600)
     canvas[histo_name].cd()

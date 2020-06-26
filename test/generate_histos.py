@@ -67,6 +67,13 @@ Norm_Map = myWF.get_normalizations_map(runningEra)
 #                                                                          #
 ############################################################################
 
+#Define relevant mass range
+mll_min = 75.
+mll_max = 160.
+mll_bin = 2
+mll_nbins = int(round((mll_max-mll_min)/mll_bin))
+if mll_nbins%2 != 0:
+    mll_nbins = mll_nbins + 1
 ##Get the handlers for all the histos and graphics
 h_base  = dict()
 
@@ -78,18 +85,18 @@ list_histos = ["h_Mmumu", "h_Mee","h_Mmue", "h_lep1pt",
                "h_leppt", "h_lepptoverm", "h_lep1weight", "h_lep2weight",
                "h_cuts"]
 
-h_base[list_histos[0]]  = ROOT.TH1F(list_histos[0], "M_{#mu#mu}", 50, 75., 110.)
-h_base[list_histos[1]]  = ROOT.TH1F(list_histos[1], "M_{ee}", 50, 75., 110.)
-h_base[list_histos[2]]  = ROOT.TH1F(list_histos[2], "M_{#mu e}", 50, 75., 110.)
-h_base[list_histos[3]]  = ROOT.TH1F(list_histos[3], "p_{T} of the 1st lepton", 55, 25., 80.)
-h_base[list_histos[4]]  = ROOT.TH1F(list_histos[4], "p_{T} of the 2nd lepton", 50, 30., 80.)
+h_base[list_histos[0]]  = ROOT.TH1F(list_histos[0], "M_{#mu#mu}", mll_nbins, mll_min, mll_max)
+h_base[list_histos[1]]  = ROOT.TH1F(list_histos[1], "M_{ee}", mll_nbins, mll_min, mll_max)
+h_base[list_histos[2]]  = ROOT.TH1F(list_histos[2], "M_{#mu e}", mll_nbins, mll_min, mll_max)
+h_base[list_histos[3]]  = ROOT.TH1F(list_histos[3], "p_{T} of the 1st lepton", 70, 10., 80.)
+h_base[list_histos[4]]  = ROOT.TH1F(list_histos[4], "p_{T} of the 2nd lepton", 70, 10., 80.)
 h_base[list_histos[5]]  = ROOT.TH1F(list_histos[5], "#eta of the 1st lepton", 30, -2.6, 2.6)
 h_base[list_histos[6]]  = ROOT.TH1F(list_histos[6], "#eta of the 2nd lepton", 30, -2.6, 2.6)
 h_base[list_histos[7]]  = ROOT.TH1F(list_histos[7], "#phi of the 1st lepton", 30, -3.15, 3.15)
 h_base[list_histos[8]]  = ROOT.TH1F(list_histos[8], "#phi of the 2nd lepton", 30, -3.15, 3.15)
 h_base[list_histos[9]]  = ROOT.TH1F(list_histos[9], "N_{jets} above 25 GeV", 10, 0, 10.)
 h_base[list_histos[10]] = ROOT.TH1F(list_histos[10], "MET sumEt puppi", 100, 0., 1000.)
-h_base[list_histos[11]] = ROOT.TH1F(list_histos[11], "MET pt puppi", 30, 0., 50.)
+h_base[list_histos[11]] = ROOT.TH1F(list_histos[11], "MET pt puppi", 25, 0., 50.)
 h_base[list_histos[12]] = ROOT.TH1F(list_histos[12], "p_{T} of the hardest jet", 50, 25., 100.)
 h_base[list_histos[13]] = ROOT.TH1F(list_histos[13], "pile up",75,0,75)
 h_base[list_histos[14]] = ROOT.TH1F(list_histos[14], "N_{bjets} above 25 GeV", 10, 0, 10.)
@@ -148,9 +155,12 @@ nentries = mytree.GetEntriesFast()
 lep1_FourMom = ROOT.TLorentzVector()
 lep2_FourMom = ROOT.TLorentzVector()
 
-muon_ptmin = 25.
-electron_ptmin = 33.
-
+muon_ptmin = 25. #trigger
+electron_ptmin = 33. #trigger
+muon_lowptmin = 10. #object
+electron_lowptmin = 15. #object
+if runningEra == 1 :
+    muon_ptmin = 28. #higher threshold
 
 print "This sample has ", mytree.GetEntriesFast(), " events"
 
@@ -178,7 +188,9 @@ for jentry in xrange(nentries):
         lep2_eta = mytree.Muon_eta[1]
         lep2_phi = mytree.Muon_phi[1]
         lep2_mass = mytree.Muon_mass[1]
-        if doFullSel and (lep1_pt <= muon_ptmin or lep2_pt <= muon_ptmin) :
+        if doFullSel and (lep1_pt <= muon_ptmin and lep2_pt <= muon_ptmin) :
+            continue
+        if lep1_pt <= muon_lowptmin or lep2_pt <= muon_lowptmin :
             continue
     elif mytree.nElectron == 2 :
 
@@ -191,7 +203,9 @@ for jentry in xrange(nentries):
         lep2_eta = mytree.Electron_eta[1]
         lep2_phi = mytree.Electron_phi[1]
         lep2_mass = mytree.Electron_mass[1]
-        if doFullSel and (lep1_pt <= electron_ptmin or lep2_pt <= electron_ptmin) :
+        if doFullSel and (lep1_pt <= electron_ptmin and lep2_pt <= electron_ptmin) :
+            continue
+        if lep1_pt <= electron_lowptmin or lep2_pt <= electron_lowptmin :
             continue
 
     else :
@@ -205,7 +219,9 @@ for jentry in xrange(nentries):
         lep2_eta = mytree.Electron_eta[0]
         lep2_phi = mytree.Electron_phi[0]
         lep2_mass = mytree.Electron_mass[0]
-        if doFullSel and (lep1_pt <= muon_ptmin or lep2_pt <= electron_ptmin) :
+        if doFullSel and (lep1_pt <= muon_ptmin and lep2_pt <= electron_ptmin) :
+            continue
+        if lep1_pt <= muon_lowptmin or lep2_pt <= electron_lowptmin :
             continue
 
     lep1_FourMom.SetPtEtaPhiM(lep1_pt,lep1_eta,lep1_phi,lep1_mass)
@@ -215,11 +231,12 @@ for jentry in xrange(nentries):
     if hasattr(mytree, 'Electron_mvaFall17V2Iso_WP80') and not mytree.Electron_mvaFall17V2Iso_WP80[0] :  #FIXME
         continue
 
-    jet_FourMom = ROOT.TLorentzVector()
+    jet_FourMom  = ROOT.TLorentzVector()
     njets_25     =  0
     njets_25_dr  =  0   #njets with delta r > 0.3 from leptons
     nbjets_25    =  0
     nbjets_25_dr =  0   #nbjets with delta r > 0.3 from leptons
+    bjetusedr    = True #use delta r cut when doing b-jet selection cut
     jetptmax     =  0.  #hardest jet pT
     jetptusedr   = True #use the delta r cut when getting hardest jet
     jetbtag      = -2.  #btag score for hardest jet
@@ -263,7 +280,7 @@ for jentry in xrange(nentries):
 
     jetsel = jetptmax < 78.
     metsel = met_pt_puppi < 28.
-    select_bool = (jetsel and metsel and nbjets_25 == 0) or not doFullSel
+    select_bool = (jetsel and metsel and ((nbjets_25_dr == 0 and bjetusedr) or (nbjets_25 == 0 and not bjetusedr))) or not doFullSel
 
     if select_bool :
         Nevts_selected = Nevts_selected + 1
@@ -311,7 +328,7 @@ for jentry in xrange(nentries):
         Event_Weight = Event_Weight*lep1_weight*lep2_weight
 
     else:
-        Event_Weight = 1.
+        Event_Weight = 1. #is data --> no weight
 
     #Fill the tree variables
     _FourlepMass[0] = Zcand_FourMom.M()
@@ -331,16 +348,21 @@ for jentry in xrange(nentries):
     ############################################################################
     if mytree.nMuon == 1 :
         if select_bool :
-            if not isData or (Zcand_FourMom.M() < 84. or Zcand_FourMom.M() > 101.) :
-                h_base["h_Mmue"].Fill(Zcand_FourMom.M(),Event_Weight)
+            mll  = Zcand_FourMom.M()
+            ptll = Zcand_FourMom.Pt()
+            is_blind = ((mll > 84. and mll < 101.)
+                        or (mll > 115. and mll < 135.))
+            
+            if not isData or not is_blind :
+                h_base["h_Mmue"].Fill(mll,Event_Weight)
 
-            h_base["h_leppt"].Fill(Zcand_FourMom.Pt(), Event_Weight)
-            h_base["h_lepptoverm"].Fill(Zcand_FourMom.Pt()/Zcand_FourMom.M(), Event_Weight)
-            h_base["h_lep1pt"].Fill(lep1_pt,Event_Weight)
+            h_base["h_leppt"].Fill(ptll, Event_Weight)
+            h_base["h_lepptoverm"].Fill(ptll/mll, Event_Weight)
+            h_base["h_lep1pt"].Fill (lep1_pt, Event_Weight)
+            h_base["h_lep2pt"].Fill (lep2_pt, Event_Weight)
             h_base["h_lep1eta"].Fill(lep1_eta,Event_Weight)
-            h_base["h_lep1phi"].Fill(lep1_phi,Event_Weight)
-            h_base["h_lep2pt"].Fill(lep2_pt,Event_Weight)
             h_base["h_lep2eta"].Fill(lep2_eta,Event_Weight)
+            h_base["h_lep1phi"].Fill(lep1_phi,Event_Weight)
             h_base["h_lep2phi"].Fill(lep2_phi,Event_Weight)
 
             h_base["h_njets25"].Fill(njets_25,Event_Weight)
@@ -350,34 +372,38 @@ for jentry in xrange(nentries):
             h_base["h_met_sumEt"].Fill(met_sumEt_puppi,Event_Weight)
             h_base["h_jetlep1dr"].Fill(jetlep1dr,Event_Weight)
             h_base["h_jetlep2dr"].Fill(jetlep2dr,Event_Weight)
-            if lep1_weight > 0. :
-                h_base["h_lep1weight"].Fill(lep1_weight,Event_Weight/lep1_weight)
-            else :
-                h_base["h_lep1weight"].Fill(lep1_weight)        
-            if lep2_weight > 0. :
-                h_base["h_lep2weight"].Fill(lep2_weight,Event_Weight/lep2_weight)
-            else :
-                h_base["h_lep2weight"].Fill(lep2_weight)        
+            if not isData :
+                if lep1_weight > 0. :
+                    h_base["h_lep1weight"].Fill(lep1_weight,Event_Weight/lep1_weight)
+                else :
+                    h_base["h_lep1weight"].Fill(lep1_weight)        
+                if lep2_weight > 0. :
+                    h_base["h_lep2weight"].Fill(lep2_weight,Event_Weight/lep2_weight)
+                else :
+                    h_base["h_lep2weight"].Fill(lep2_weight)        
             
             h_base["h_npvs"].Fill(nPV,Event_Weight)
-            h_base["h_cuts"].Fill(9,Event_Weight)
+            h_base["h_cuts"].Fill(9,Event_Weight) #accepted events in cut flow
             tree_signalreg.Fill()
+        #End selection requirement
 
         if select_bool or (metsel and nbjets_25 == 0 and not jetsel) :
             h_base["h_jetptmax"].Fill(jetptmax,Event_Weight)
         if select_bool or (jetsel and nbjets_25 == 0 and not metsel) :
             h_base["h_met_pt"].Fill(met_pt_puppi,Event_Weight)
+        #record the cut-flow of the selection
+        h_base["h_cuts"].Fill(0,Event_Weight) # all events
         if jetsel :
             h_base["h_cuts"].Fill(1,Event_Weight)
         if metsel :
             h_base["h_cuts"].Fill(2,Event_Weight)
         if nbjets_25 == 0 :
             h_base["h_cuts"].Fill(3,Event_Weight)
-            if jetsel :
+            if jetsel : #nbjets + jetpt
                 h_base["h_cuts"].Fill(4,Event_Weight)
-            if metsel :
+            if metsel : #nbjets + metpt
                 h_base["h_cuts"].Fill(5,Event_Weight)
-                if jetsel :
+                if jetsel : #nbjets + jetpt + metpt
                     h_base["h_cuts"].Fill(6,Event_Weight)
     #End histogram filling (nmuon == 1)
 #End event loop

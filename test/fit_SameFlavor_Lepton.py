@@ -4,7 +4,7 @@ import ROOT
 ROOT.gROOT.SetBatch(True) 
 
 
-fInput = ROOT.TFile("histos/latest_production/ZEMuHistos_Data_SameSign_Electron_Combined.root")
+fInput = ROOT.TFile("histos/latest_production/ZEMuHistos_Data_SameSign_Electron_2016.root")
 histo = fInput.Get("htemp")
 
 #Define the observable

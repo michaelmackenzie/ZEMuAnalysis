@@ -31,41 +31,60 @@ class exampleProducer(Module):
 
         # sparsing parameters
         minmupt     = 25.
+        minmuptlow  = 10. # for electron trigger
         minelept    = 33.
+        mineleptlow = 15. # for muon trigger
         jetIdflag   = 4
         jetPUIdflag = 6
         maxMET      = 50.
-        maxJetPt    = 100.
+        maxJetPt    = -1. # < 0 to apply no cut
         minLepM     = 75.
-        maxLepM     = 110.
+        maxLepM     = 160.
         cutBJets    = False
+        muonIso     = 0.15 #tight ID
         
         # selection parameters
         maxJetPt_s = 78.
         maxMET_s   = 28.
         
         if self.runningEra == 0 :
-            jetIdflag = 7
+            jetIdflag = 7 #different flag for 2016
+            minelept = 28. #lower pT trigger
+        elif self.runningEra == 1 :
+            minmupt = 28. #higher pT trigger
 
-        if PuppiMET.pt > maxMET :
+        if PuppiMET.pt > maxMET : #cut high MET events
             return False
 
+        muonTriggered = False
+        electronTriggered = False
         if self.runningEra == 0 :
-            if not (HLT.IsoMu24 or HLT.Mu50 or HLT.Ele27_WPTight_Gsf) :
-                return False
-
+            if HLT.IsoMu24 or HLT.Mu50 :
+                muonTriggered = True
+            if HLT.Ele27_WPTight_Gsf :
+                electronTriggered = True
         elif self.runningEra == 1 :
-            if not (HLT.IsoMu27 or HLT.Mu50 or HLT.Ele32_WPTight_Gsf_L1DoubleEG) :
-                return False
-
+            if HLT.IsoMu27 or HLT.Mu50 :
+                muonTriggered = True
+            if HLT.Ele32_WPTight_Gsf_L1DoubleEG :
+                electronTriggered = True
         elif self.runningEra == 2 :
-            if not (HLT.IsoMu24 or HLT.Mu50 or HLT.Ele32_WPTight_Gsf) :
-                return False
+            if HLT.IsoMu24 or HLT.Mu50 :
+                muonTriggered = True
+            if HLT.Ele32_WPTight_Gsf :
+                electronTriggered = True
 
+        #require a trigger
+        if not muonTriggered and not electronTriggered :
+            return False
+
+        #ee, mumu, or emu only
         if (len(electrons) + len(muons) != 2) :
             return False
 
         if len(muons) == 2 :
+            if not muonTriggered:
+                return False
             lep_mass = (muons[0].p4() + muons[1].p4()).M() 
             if (lep_mass < minLepM or lep_mass > maxLepM) :
                 return False
@@ -75,12 +94,14 @@ class exampleProducer(Module):
                 return False
             if not muons[1].tightId :
                 return False
-            if muons[0].pfRelIso03_all > 0.2 or muons[1].pfRelIso03_all > 0.2 : #medium
+            if muons[0].pfRelIso04_all > muonIso or muons[1].pfRelIso04_all > muonIso :
                 return False
             if muons[0].pt < minmupt or muons[1].pt < minmupt :
                 return False
 
         elif len(electrons) == 2 :
+            if not electronTriggered :
+                return False
             lep_mass = (electrons[0].p4() + electrons[1].p4()).M()
             if (lep_mass < minLepM or lep_mass > maxLepM) :
                 return False
@@ -107,17 +128,19 @@ class exampleProducer(Module):
                 return False
             if not muons[0].tightId :
                 return False
-            if muons[0].pfRelIso03_all > 0.2 : #medium
+            if muons[0].pfRelIso04_all > muonIso :
                 return False
             if not electrons[0].mvaFall17V2Iso_WP80 :
                 return False
 
             if math.fabs(electrons[0].eta + electrons[0].deltaEtaSC) > 1.442 and math.fabs(electrons[0].eta + electrons[0].deltaEtaSC) < 1.566 :
                 return False
-
-            if muons[0].pt < minmupt or electrons[0].pt < minelept :
+            #check triggers with threshold on triggering lepton
+            if not ((muonTriggered and muons[0].pt > minmupt) or (electronTriggered and electrons[0].pt > minelept)) :
                 return False
-
+            #check objects pass thresholds
+            if muons[0].pt < minmuptlow or electrons[0].pt < mineleptlow :
+                return False
 
         jetptmax  = -1.
         for jetcount in xrange(len(jets)) :
@@ -129,7 +152,7 @@ class exampleProducer(Module):
 
             if pt_of_jet > jetptmax :
                 jetptmax = pt_of_jet
-                if jetptmax > maxJetPt :
+                if maxJetPt > 0. and jetptmax > maxJetPt :
                     return False
             if cutBJets and pt_of_jet > 25. and jets[jetcount].btagDeepB > 0.4184 :   #medium
                 return False

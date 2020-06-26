@@ -27,22 +27,22 @@ el_reco_scale_histo_2016 = el_reco_scale_file_2016.Get("EGamma_SF2D")
 mu_ID_scale_name_BCDEF_2016  = "scale_factors/RunBCDEF_SF_ID_muon_2016.root"
 mu_ID_scale_file_BCDEF_2016  = ROOT.TFile(mu_ID_scale_name_BCDEF_2016)
 mu_ID_scale_histo_BCDEF_2016 = ROOT.TH2F()
-mu_ID_scale_histo_BCDEF_2016 = mu_ID_scale_file_BCDEF_2016.Get("NUM_MediumID_DEN_genTracks_eta_pt")
+mu_ID_scale_histo_BCDEF_2016 = mu_ID_scale_file_BCDEF_2016.Get("NUM_TightID_DEN_genTracks_eta_pt")
 
 mu_ID_scale_name_GH_2016  = "scale_factors/RunGH_SF_ID_muon_2016.root"
 mu_ID_scale_file_GH_2016  = ROOT.TFile(mu_ID_scale_name_GH_2016)
 mu_ID_scale_histo_GH_2016 = ROOT.TH2F()
-mu_ID_scale_histo_GH_2016 = mu_ID_scale_file_GH_2016.Get("NUM_MediumID_DEN_genTracks_eta_pt")
+mu_ID_scale_histo_GH_2016 = mu_ID_scale_file_GH_2016.Get("NUM_TightID_DEN_genTracks_eta_pt")
 
 mu_Iso_scale_name_BCDEF_2016  = "scale_factors/RunBCDEF_SF_ISO_muon_2016.root"
 mu_Iso_scale_file_BCDEF_2016  = ROOT.TFile(mu_Iso_scale_name_BCDEF_2016)
 mu_Iso_scale_histo_BCDEF_2016 = ROOT.TH2F()
-mu_Iso_scale_histo_BCDEF_2016 = mu_Iso_scale_file_BCDEF_2016.Get("NUM_LooseRelIso_DEN_MediumID_eta_pt")
+mu_Iso_scale_histo_BCDEF_2016 = mu_Iso_scale_file_BCDEF_2016.Get("NUM_TightRelIso_DEN_TightIDandIPCut_eta_pt")
 
 mu_Iso_scale_name_GH_2016  = "scale_factors/RunGH_SF_ISO_muon_2016.root"
 mu_Iso_scale_file_GH_2016  = ROOT.TFile(mu_Iso_scale_name_GH_2016)
 mu_Iso_scale_histo_GH_2016 = ROOT.TH2F()
-mu_Iso_scale_histo_GH_2016 = mu_Iso_scale_file_GH_2016.Get("NUM_LooseRelIso_DEN_MediumID_eta_pt")
+mu_Iso_scale_histo_GH_2016 = mu_Iso_scale_file_GH_2016.Get("NUM_TightRelIso_DEN_TightIDandIPCut_eta_pt")
 
 mu_Trigger_scale_name_BCDEF_2016       = "scale_factors/EfficienciesAndSF_RunBtoF_muon_2016.root"
 mu_Trigger_scale_file_BCDEF_2016       = ROOT.TFile(mu_Trigger_scale_name_BCDEF_2016)

@@ -6,7 +6,7 @@ import argparse
 ROOT.gROOT.SetBatch(True) 
 
 #Get all the inputs
-fBkg = ROOT.TFile("trees/ZEMuAnalysis_Background_Combined.root")
+fBkg = ROOT.TFile("trees/ZEMuAnalysis_Background_2016.root")
 signaltree = fBkg.Get("signaltree")
 
 M_ll = ROOT.RooRealVar("M_ll","M_ll",75.,110.,"GeV")
