@@ -56,6 +56,7 @@ frac_table_2017["SingleAntiToptW"] = 0.0034
 frac_table_2017["DY50"] = 0.1624
 frac_table_2017["WW"] = 0.
 frac_table_2017["WZ"] = 0.
+frac_table_2017["Wlnu"] = 0.
 frac_table_2017["Signal"] = 0.
 
 #######################################

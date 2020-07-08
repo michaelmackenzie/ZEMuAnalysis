@@ -100,7 +100,7 @@ h_base[list_histos[11]] = ROOT.TH1F(list_histos[11], "MET pt puppi", 25, 0., 50.
 h_base[list_histos[12]] = ROOT.TH1F(list_histos[12], "p_{T} of the hardest jet", 50, 25., 100.)
 h_base[list_histos[13]] = ROOT.TH1F(list_histos[13], "pile up",75,0,75)
 h_base[list_histos[14]] = ROOT.TH1F(list_histos[14], "N_{bjets} above 25 GeV", 10, 0, 10.)
-h_base[list_histos[15]] = ROOT.TH1F(list_histos[15], "bJet DeepB Value of Highest pT Jet", 100, -1., 1.)
+h_base[list_histos[15]] = ROOT.TH1F(list_histos[15], "bJet DeepB Value of Highest pT Jet", 55, -0.1, 1.)
 h_base[list_histos[16]] = ROOT.TH1F(list_histos[16], "N_{jets} above 25 GeV and #DeltaR > 0.3 from leptons", 10, 0, 10.)
 h_base[list_histos[17]] = ROOT.TH1F(list_histos[17], "hardest jet #DeltaR from lepton 1", 60, 0, 6.)
 h_base[list_histos[18]] = ROOT.TH1F(list_histos[18], "hardest jet #DeltaR from lepton 2", 60, 0, 6.)
@@ -157,10 +157,14 @@ lep2_FourMom = ROOT.TLorentzVector()
 
 muon_ptmin = 25. #trigger
 electron_ptmin = 33. #trigger
+require_both_high_pt = True #apply trigger pT thresholds to both
 muon_lowptmin = 10. #object
 electron_lowptmin = 15. #object
 if runningEra == 1 :
     muon_ptmin = 28. #higher threshold
+if require_both_high_pt :
+    muon_lowptmin = muon_ptmin
+    electron_lowptmin = electron_ptmin
 
 print "This sample has ", mytree.GetEntriesFast(), " events"
 

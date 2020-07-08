@@ -218,7 +218,15 @@ for histo_name in list_histos:
     hMCErr.Draw("sameE2")
 
     leg1.Draw()
-
+    label = ROOT.TLatex()
+    label.SetNDC()
+    label.SetTextFont(72)
+    label.SetTextAlign(13)
+    label.SetTextSize(0.04)
+    label.DrawLatex(0.7,0.6, "nData    = " + "{:.0f}".format(dict_data_totals[histo_name]));
+    label.DrawLatex(0.7,0.55, "nMC     = " + "{:.1f}".format(dict_mc_totals  [histo_name]));
+    label.DrawLatex(0.7,0.5, "nSignal = " + "{:.1f}".format(dict_sig_totals [histo_name]));
+    
     ################################################
     pad2.cd()
     #pad2.SetTopMargin(0)
