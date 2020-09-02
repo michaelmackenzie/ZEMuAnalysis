@@ -23,7 +23,12 @@ secs_table["DY50"] = 2075.14*3 #amcatnlo 2017
 secs_table["WW"] = 12.178
 secs_table["WZ"] = 27.6
 secs_table["Wlnu"] = 52850.0
-secs_table["Signal"] = 2075.14*0.000001/0.0337 #Assume BR of 10-6
+secs_table["ZEMu"] = 2075.14*0.000001/0.0337 #Assume BR of 10-6
+secs_table["ZETau"] = ((6225.42+18610.)/(3.*3.3658e-2))*9.8e-6
+secs_table["ZMuTau"] = ((6225.42+18610.)/(3.*3.3658e-2))*1.2e-5
+secs_table["HEMu"] = (48.61+3.766+0.5071+1.358+0.880)*3.5e-4
+secs_table["HETau"] = (48.61+3.766+0.5071+1.358+0.880)*6.1e-3
+secs_table["HMuTau"] = (48.61+3.766+0.5071+1.358+0.880)*2.5e-3
 
 #######################################
 #                                     #
@@ -40,7 +45,12 @@ frac_table_2016["DY50"] = 0.1661
 frac_table_2016["WW"] = 0.1866
 frac_table_2016["WZ"] = 0.
 frac_table_2016["Wlnu"] = 0.
-frac_table_2016["Signal"] = 0.
+frac_table_2016["ZEMu"] = 0.
+frac_table_2016["ZETau"] = 0.
+frac_table_2016["ZMuTau"] = 0.
+frac_table_2016["HEMu"] = 0.
+frac_table_2016["HETau"] = 0.
+frac_table_2016["HMuTau"] = 0.
 
 #######################################
 #                                     #
@@ -57,7 +67,12 @@ frac_table_2017["DY50"] = 0.1624
 frac_table_2017["WW"] = 0.
 frac_table_2017["WZ"] = 0.
 frac_table_2017["Wlnu"] = 0.
-frac_table_2017["Signal"] = 0.
+frac_table_2017["ZEMu"] = 0.
+frac_table_2017["ZETau"] = 0.
+frac_table_2017["ZMuTau"] = 0.
+frac_table_2017["HEMu"] = 0.
+frac_table_2017["HETau"] = 0.
+frac_table_2017["HMuTau"] = 0.
 
 #######################################
 #                                     #
@@ -76,7 +91,12 @@ frac_table_2018["DY50"] = 0.163
 frac_table_2018["WW"] = 0.001755
 frac_table_2018["WZ"] = 0.
 frac_table_2018["Wlnu"] = 0.0003866
-frac_table_2018["Signal"] = 0.
+frac_table_2018["ZEMu"] = 0.
+frac_table_2018["ZETau"] = 0.
+frac_table_2018["ZMuTau"] = 0.
+frac_table_2018["HEMu"] = 0.
+frac_table_2018["HETau"] = 0.
+frac_table_2018["HMuTau"] = 0.
 
 frac_table = dict()
 
@@ -122,7 +142,7 @@ def main():
 
         is_in_complementary_sample_list = False
         
-        samplename = dirname.split("crab_" + year + "_ZEMuAnalysis_")[1]
+        samplename = dirname.split("crab_" + year + "_LFVAnalysis_")[1]
 
         print "Processing sample dir " + dirname
         crab_command = "crab report -d " + dir_input + dirname + " | grep read | awk '{print $5}'"

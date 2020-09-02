@@ -22,10 +22,18 @@ class HLTElectronFilter(Module):
     def analyze(self, event):
 
         HLT = Object(event, "HLT") 
-
-        if (HLT.IsoMu24 or HLT.IsoMu27 or HLT.Mu50) :
-            return False
-
+        # if no muon trigger, not in muon data stream
+        if not (HLT.IsoMu24 or HLT.IsoMu27 or HLT.Mu50) :
+            return True
+        muons = Collection(event, "Muon")
+        # check if would pass muon trigger requirements
+        for index in range(len(muons)):
+            if ((HLT.IsoMu24 and muons[index].pt > 25. or #really should only check this in 2016/2018
+                 HLT.IsoMu27 and muons[index].pt > 28. or #really should only check this in 2017
+                 HLT.Mu50 and muons[index].pt > 50.) and
+                muons[index].tightId and muons[index].pfRelIso04_all < 0.15):
+                return False
+        # fails muon trigger requirements, so must have passed only electron trigger requirements
         return True
 
 class SignalFilter(Module):
@@ -38,8 +46,9 @@ class SignalFilter(Module):
     def analyze(self, event):
 
         muons = Collection(event, "Muon")
+        electrons = Collection(event, "Electron")
 
-        if (len(muons) != 1) :
+        if (len(muons) == 0 or len(electrons) == 0) :
             return False
 
         return True
@@ -53,9 +62,11 @@ args = p.parse_args()
 # Switch from muon to electron channel
 if args.isData_option == "MC":
     isData = False
-if args.isData_option == "data":
+elif args.isData_option == "data":
     isData = True
-
+else:
+    print "Option one should be MC or data! Defaulting to MC"
+    isData = False
 year = args.year_option
 #---------------------------------#
 
@@ -86,6 +97,9 @@ if not isData and not os.path.exists(dir_output_bkg):
 if not isData and not os.path.exists(dir_output_sig):
     os.makedirs(dir_output_sig)
 
+if isData and not os.path.exists(dir_output_data):
+    os.makedirs(dir_output_data)
+    
 for dirname in list_dirs:
 
     print "Processing sample dir " + dirname
@@ -94,50 +108,60 @@ for dirname in list_dirs:
     n_jobs = int(subprocess.check_output(n_jobs_command, shell=True))
 
     print "Number of jobs to be retrieved: ", n_jobs
-
-    crab_command = "crab getoutput -d " + dir_input + dirname
-    os.system(crab_command)
+    n_trees_command = "ls " + dir_input + dirname + "/results/ | grep .root | wc | awk '{print $1}'"
+    n_trees = int(subprocess.check_output(n_trees_command, shell=True))
     
-    samplename = dirname.split("crab_" + year + "_ZEMuAnalysis_")
+    crab_command = "crab getoutput -d " + dir_input + dirname
 
-    if "Signal" in dirname:
-        hadd_command = "../scripts/haddnano.py " + dir_output_sig + "ZEMuAnalysis_" + samplename[1] + "_" + year + ".root " + dir_input + dirname + "/results/*.root"
+    if n_trees == 0 : #only get the output if there aren't trees in the directory
+        os.system(crab_command)
+    else :
+        print "Trees are already present, skipping getoutput command!"
+    
+    samplename = dirname.split("crab_" + year + "_LFVAnalysis_")
+
+    isSignal = "EMu" in dirname or "ETau" in dirname or "MuTau" in dirname
+    if isSignal:
+        hadd_command = "../scripts/haddnano.py " + dir_output_sig + "LFVAnalysis_" + samplename[1] + "_" + year + ".root " + dir_input + dirname + "/results/*.root"
     elif isData:
-        hadd_command = "../scripts/haddnano.py " + dir_output_data + "ZEMuAnalysis_" + samplename[1] + "_" + year + ".root " + dir_input + dirname + "/results/*.root"
+        hadd_command = "../scripts/haddnano.py " + dir_output_data + "LFVAnalysis_" + samplename[1] + "_" + year + ".root " + dir_input + dirname + "/results/*.root"
     else:
-        hadd_command = "../scripts/haddnano.py " + dir_output_bkg + "ZEMuAnalysis_" + samplename[1] + "_" + year + ".root " + dir_input + dirname + "/results/*.root"
+        hadd_command = "../scripts/haddnano.py " + dir_output_bkg + "LFVAnalysis_" + samplename[1] + "_" + year + ".root " + dir_input + dirname + "/results/*.root"
 
     os.system(hadd_command)
 
-    if not "Signal" in dirname and not isData :
-        p_Signal=PostProcessor(".",[dir_output_bkg + "ZEMuAnalysis_" + samplename[1] + "_" + year + ".root "],modules=[SignalFilter()],haddFileName=dir_output_bkg + "ZEMuAnalysis_" + samplename[1] + "_SigRegion_" + year + ".root ")
-        p_Signal.run()
+    # if not isSignal and not isData:
+    #     p_Signal=PostProcessor(".",[dir_output_bkg + "LFVAnalysis_" + samplename[1] + "_" + year + ".root "],modules=[SignalFilter()],haddFileName=dir_output_bkg + "LFVAnalysis_" + samplename[1] + "_SigRegion_" + year + ".root ")
+    #     p_Signal.run()
+    # elif isData :
+    #     p_Signal=PostProcessor(".",[dir_output_data + "LFVAnalysis_" + samplename[1] + "_" + year + ".root "],modules=[SignalFilter()],haddFileName=dir_output_data + "LFVAnalysis_" + samplename[1] + "_SigRegion_" + year + ".root ")
+    #     p_Signal.run()
 
 
 # Now treat and merge samples
 if isData:
-    hadd_command = "../scripts/haddnano.py " + dir_output_data + "ZEMuAnalysis_SingleMu_" + year + ".root " + dir_output_data + "ZEMuAnalysis_SingleMu_?_" + year + ".root"
-    rm_command = "rm -rf " + dir_output_data + "ZEMuAnalysis_SingleMu_?_" + year + ".root"
+    hadd_command = "../scripts/haddnano.py " + dir_output_data + "LFVAnalysis_SingleMu_" + year + ".root " + dir_output_data + "LFVAnalysis_SingleMu_?_" + year + ".root"
+    rm_command = "rm -rf " + dir_output_data + "LFVAnalysis_SingleMu_?_" + year + ".root"
 
     os.system(hadd_command)
     os.system(rm_command)
 
-    hadd_command = "../scripts/haddnano.py " + dir_output_data + "ZEMuAnalysis_SingleEle_DoubleTrig_" + year + ".root " + dir_output_data + "ZEMuAnalysis_SingleEle_?_" + year + ".root"
-    rm_command = "rm -rf " + dir_output_data + "ZEMuAnalysis_SingleEle_?_" + year + ".root"
+    hadd_command = "../scripts/haddnano.py " + dir_output_data + "LFVAnalysis_SingleEle_DoubleTrig_" + year + ".root " + dir_output_data + "LFVAnalysis_SingleEle_?_" + year + ".root"
+    rm_command = "rm -rf " + dir_output_data + "LFVAnalysis_SingleEle_?_" + year + ".root"
 
     os.system(hadd_command)
     os.system(rm_command)
 
-    p_HLT=PostProcessor(".",[dir_output_data + "ZEMuAnalysis_SingleEle_DoubleTrig_" + year + ".root "],modules=[HLTElectronFilter()],haddFileName=dir_output_data + "ZEMuAnalysis_SingleEle_" + year + ".root ")
+    p_HLT=PostProcessor(".",[dir_output_data + "LFVAnalysis_SingleEle_DoubleTrig_" + year + ".root "],modules=[HLTElectronFilter()],haddFileName=dir_output_data + "LFVAnalysis_SingleEle_" + year + ".root ")
     p_HLT.run()
 
-    rm_command = "rm -rf " + dir_output_data + "ZEMuAnalysis_SingleEle_DoubleTrig_" + year + ".root "
+    rm_command = "rm -rf " + dir_output_data + "LFVAnalysis_SingleEle_DoubleTrig_" + year + ".root "
     os.system(rm_command)
 
-    p_Signal_mu=PostProcessor(".",[dir_output_data + "ZEMuAnalysis_SingleMu_" + year + ".root "],modules=[SignalFilter()],haddFileName=dir_output_data + "ZEMuAnalysis_SingleMu_SigRegion_" + year + ".root ")
-    p_Signal_mu.run()
+    # p_Signal_mu=PostProcessor(".",[dir_output_data + "LFVAnalysis_SingleMu_" + year + ".root "],modules=[SignalFilter()],haddFileName=dir_output_data + "LFVAnalysis_SingleMu_SigRegion_" + year + ".root ")
+    # p_Signal_mu.run()
 
-    p_Signal_ele=PostProcessor(".",[dir_output_data + "ZEMuAnalysis_SingleEle_" + year + ".root "],modules=[SignalFilter()],haddFileName=dir_output_data + "ZEMuAnalysis_SingleEle_SigRegion_" + year + ".root ")
-    p_Signal_ele.run()
+    # p_Signal_ele=PostProcessor(".",[dir_output_data + "LFVAnalysis_SingleEle_" + year + ".root "],modules=[SignalFilter()],haddFileName=dir_output_data + "LFVAnalysis_SingleEle_SigRegion_" + year + ".root ")
+    # p_Signal_ele.run()
 
 print "All done!"
