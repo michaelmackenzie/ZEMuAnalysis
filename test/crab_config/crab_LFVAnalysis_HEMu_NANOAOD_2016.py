@@ -1,4 +1,4 @@
-from CRABClient.UserUtilities import config
+from CRABClient.UserUtilities import config, getUsernameFromSiteDB
 config = config() 
 
 config.section_('General')
@@ -16,8 +16,8 @@ config.section_('Data')
 config.Data.inputDataset = '/LFVAnalysis_HEMu_2016_8028V1/pellicci-LFVAnalysis_MINIAOD_949V1-53f8667ba4b240d5eafd36e71bf34742/USER'
 config.Data.inputDBS = 'phys03'
 config.Data.splitting = 'FileBased'
-config.Data.unitsPerJob = 5
-config.Data.outLFNDirBase = '/store/user/mimacken/'
+config.Data.unitsPerJob = 50
+config.Data.outLFNDirBase = '/store/user/%s/' % (getUsernameFromSiteDB())
 config.Data.publication = True
 
 config.Data.outputDatasetTag = 'LFVAnalysis_NANOAOD_8028V1'
