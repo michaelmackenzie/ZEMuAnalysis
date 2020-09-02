@@ -4,6 +4,13 @@
 *~
 *#*
 
+#image files
+*.png
+*.jpg
+*.pdf
+*.svn
+*.gif
+
 #root files
 *.root
 *.tree

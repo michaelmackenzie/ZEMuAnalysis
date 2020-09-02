@@ -33,7 +33,8 @@ list_histos = ["h_Mmumu", "h_Mee","h_Mmue", "h_lep1pt",
                "h_met_pt", "h_jetptmax", "h_npvs", "h_nbjets25",
                "h_btagid", "h_njets25dr", "h_jetlep1dr", "h_jetlep2dr",
                "h_leppt", "h_lepptoverm", "h_lep1weight", "h_lep2weight",
-               "h_cuts"]
+               "h_cuts", "h_puweight", "h_trigger",
+               "h_nelec", "h_nmuon", "h_ntau"]
 
 for hname in list_histos:
     hstack[hname] = ROOT.THStack("hstack_" + hname,"")
@@ -66,17 +67,22 @@ dict_sig_totals  = dict()
 dict_data_totals = dict()
 
 for filename in list_inputfiles:
-    fileIn = ROOT.TFile(filename, "READ")
+    fileIn = ROOT.TFile.Open(filename, "READ")
+    if not fileIn :
+        print "File", filename, "not found! Continuing..."
+        continue
     if verbose > 1 :
         print filename
 
     sample_name = filename.split("_")[2]
     for histo_name in list_histos:
+        if not hsignal.has_key(histo_name) :
+            hsignal[histo_name] = dict()
+            dict_sig_totals[histo_name] = dict()
         if not dict_mc_totals.has_key(histo_name) :
             dict_mc_totals[histo_name]   = 0.
-            dict_sig_totals[histo_name]  = 0.
             dict_data_totals[histo_name] = 0.
-
+        dict_sig_totals[histo_name][sample_name]  = 0.
         histo = fileIn.Get(histo_name)
         
         # if histo_name == "h_Mmue" :
@@ -90,13 +96,19 @@ for filename in list_inputfiles:
                 histo.SetBinContent(bin,0.)
 
         histo_container.append(copy.copy(histo))
-
-        if "Signal" in sample_name:
+        
+        if "ZEMu" in sample_name :
             histo_container[-1].SetLineStyle(2)   #dashed
             histo_container[-1].SetLineColor(2)   #red
             histo_container[-1].SetLineWidth(4)   #kind of thick
-            hsignal[histo_name] = histo_container[-1]
-            dict_sig_totals[histo_name] = histo.Integral(0, histo.GetNbinsX()+1) + dict_sig_totals[histo_name]
+            hsignal[histo_name][sample_name] = histo_container[-1]
+            dict_sig_totals[histo_name][sample_name] = histo.Integral(0, histo.GetNbinsX()+1) + dict_sig_totals[histo_name][sample_name]
+        elif "HEMu" in sample_name :
+            histo_container[-1].SetLineStyle(2)   #dashed
+            histo_container[-1].SetLineColor(3)   #
+            histo_container[-1].SetLineWidth(4)   #kind of thick
+            hsignal[histo_name][sample_name] = histo_container[-1]
+            dict_sig_totals[histo_name][sample_name] = histo.Integral(0, histo.GetNbinsX()+1) + dict_sig_totals[histo_name][sample_name]
         elif "Data" in sample_name:
             histo_container[-1].SetMarkerStyle(20)   #point
             hdata[histo_name] = histo_container[-1]
@@ -110,11 +122,11 @@ for filename in list_inputfiles:
         if histo_name == "h_Mmue": #Add the legend only once
 
             if histo.Integral(0,histo.GetNbinsX()+1) > float(signal_magnify)/12. or sample_name == "Signal": #Only plot in the legend those samples which have some contribution
-                if not sample_name == "Data" and not sample_name == "Signal":
+                if not sample_name == "Data" and not sample_name == "ZEMu" and not sample_name == "HEMu":
                     leg1.AddEntry(histo_container[-1],sample_name,"f")
                 elif sample_name == "Data":
                     leg1.AddEntry(histo_container[-1],sample_name,"lep")
-                elif sample_name == "Signal":
+                elif sample_name == "HEMu" or sample_name == "ZEMu":
                     leg1.AddEntry(histo_container[-1],sample_name + " x " + str(signal_magnify),"f")
 
     fileIn.Close()
@@ -147,7 +159,7 @@ for histo_name in list_histos:
 
     hstack[histo_name].SetTitle("")
     hstack[histo_name].Draw("histo")
-
+    max_value = hstack[histo_name].GetMaximum()
     ##########################################
     #hstack[histo_name].GetXaxis().SetTickLength(0)
     #hstack[histo_name].GetXaxis().SetLabelOffset(999)
@@ -204,13 +216,20 @@ for histo_name in list_histos:
     if histo_name == "h_jetptmax":
         hstack[histo_name].GetXaxis().SetTitle("p_{T} of hardest jet (25 GeV/c)")
 
-    if signal_magnify != 1:
-        hsignal[histo_name].Scale(signal_magnify)      
-
+    for signal in hsignal[histo_name] :
+        if signal_magnify != 1:
+            hsignal[histo_name][signal].Scale(signal_magnify)      
+        max_value = max(max_value, hsignal[histo_name][signal].GetMaximum())
+        
+    max_value = max(max_value, hdata[histo_name].GetMaximum())
+    hstack[histo_name].GetYaxis().SetRangeUser(max_value/1.e4, max_value*1.2)
+    hstack[histo_name].SetMaximum(max_value*1.2)
     hstack[histo_name].Draw("histo")
-    hsignal[histo_name].Draw("SAME,hist")
+    
+    for signal in hsignal[histo_name] :
+        hsignal[histo_name][signal].Draw("SAME,hist")
     hdata[histo_name].Draw("SAME,E1")
-
+    
     hMCErr = copy.deepcopy(hstack[histo_name].GetStack().Last())
     hMCErr.SetFillStyle(3005)
     hMCErr.SetMarkerStyle(1)
@@ -225,7 +244,13 @@ for histo_name in list_histos:
     label.SetTextSize(0.04)
     label.DrawLatex(0.7,0.6, "nData    = " + "{:.0f}".format(dict_data_totals[histo_name]));
     label.DrawLatex(0.7,0.55, "nMC     = " + "{:.1f}".format(dict_mc_totals  [histo_name]));
-    label.DrawLatex(0.7,0.5, "nSignal = " + "{:.1f}".format(dict_sig_totals [histo_name]));
+    yoffset = 0.5
+    for signal in hsignal[histo_name] :
+        sname = "n Z->e#mu"
+        if "HEMu" in signal:
+            sname = "n H->e#mu"
+        label.DrawLatex(0.7,yoffset, "{} = {:.1f}".format(sname,dict_sig_totals [histo_name][signal]));
+        yoffset = yoffset - 0.05
     
     ################################################
     pad2.cd()
@@ -254,6 +279,7 @@ for histo_name in list_histos:
     line_on_one.SetLineColor(38)
 
     totalData.Draw()
+    totalData.GetYaxis().SetRangeUser(0.5, 2.) #+- factor of 2
     line_on_one.Draw("SAME")
     ################################################
 

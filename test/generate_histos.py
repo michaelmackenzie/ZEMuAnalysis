@@ -2,6 +2,7 @@ import ROOT
 import math
 import argparse
 import numpy as np
+import array
 from Simplified_Workflow_Handler import Simplified_Workflow_Handler
 
 ############################################################################
@@ -14,15 +15,20 @@ p.add_argument('runningEra_option', help='Type <<0>> for 2016, <<1>> for 2017, <
 p.add_argument('doFullSel_option', help='Do full selection or not')
 p.add_argument('inputfile_option', help='Provide input file name')
 p.add_argument('outputfile_option', help='Provide output file name')
+p.add_argument('channel_option', help='Type <<0>> for e+mu, <<1>> for e+tau, or <<2>> for mu+tau')
 args = p.parse_args()
 
 runningEra = int(args.runningEra_option)
 doFullSel = args.doFullSel_option == '1'
 input_filename = args.inputfile_option
 output_filename = args.outputfile_option
+channel = int(args.channel_option)
 
 #-------------------------#
 myWF = Simplified_Workflow_Handler(runningEra)
+
+verbose = 0
+
 
 ############################################################################
 #                                                                          #
@@ -61,19 +67,44 @@ if "SingleMu" in sample_name or "SingleEle" in sample_name :
 # Get the normalization
 Norm_Map = myWF.get_normalizations_map(runningEra)
 
+
+############################################################################
+#                                                                          #
+#---------------------- Define selection parameters -----------------------#
+#                                                                          #
+############################################################################
+#Define relevant mass range
+mll_min = 75.
+mll_max = 160.
+mll_bin = 2
+if channel != 0 : #lower mass min in tau cases
+    mll_min = 0.
+    mll_bin = 5
+mll_nbins = int(round((mll_max-mll_min)/mll_bin))
+if mll_nbins%2 != 0: #force even number of bins
+    mll_nbins = mll_nbins + 1
+
+#whether to use selection criteria or not for lepton vetos
+doCountingSelection = True
+minmupt_count = 10.
+muonIso_count = 4
+muonId_count = 2 # 1 = loose, 2 = medium, 3 = tight
+minelept_count = 15.
+eleId_count = 2 #1 = WPL, 2 = WP80, 3 = WP90
+mintaupt_count = 20.
+tauAntiEle_count = 8
+tauAntiMu_count = 2
+tauIdDecay_count = True
+
+if channel == 0:
+    doCountingSelection = True
+
 ############################################################################
 #                                                                          #
 #------------------------------ Create histos -----------------------------#
 #                                                                          #
 ############################################################################
 
-#Define relevant mass range
-mll_min = 75.
-mll_max = 160.
-mll_bin = 2
-mll_nbins = int(round((mll_max-mll_min)/mll_bin))
-if mll_nbins%2 != 0:
-    mll_nbins = mll_nbins + 1
 ##Get the handlers for all the histos and graphics
 h_base  = dict()
 
@@ -83,7 +114,8 @@ list_histos = ["h_Mmumu", "h_Mee","h_Mmue", "h_lep1pt",
                "h_met_pt", "h_jetptmax", "h_npvs", "h_nbjets25",
                "h_btagid", "h_njets25dr", "h_jetlep1dr", "h_jetlep2dr",
                "h_leppt", "h_lepptoverm", "h_lep1weight", "h_lep2weight",
-               "h_cuts"]
+               "h_cuts", "h_puweight", "h_trigger",
+               "h_nelec", "h_nmuon", "h_ntau"]
 
 h_base[list_histos[0]]  = ROOT.TH1F(list_histos[0], "M_{#mu#mu}", mll_nbins, mll_min, mll_max)
 h_base[list_histos[1]]  = ROOT.TH1F(list_histos[1], "M_{ee}", mll_nbins, mll_min, mll_max)
@@ -109,6 +141,11 @@ h_base[list_histos[20]] = ROOT.TH1F(list_histos[20], "pT_{ll}/M_{ll}",  50, 0., 
 h_base[list_histos[21]] = ROOT.TH1F(list_histos[21], "l_{1} weight",  50, 0., 2.)
 h_base[list_histos[22]] = ROOT.TH1F(list_histos[22], "l_{2} weight",  50, 0., 2.)
 h_base[list_histos[23]] = ROOT.TH1F(list_histos[23], "Cut flow", 10, 0, 10.)
+h_base[list_histos[24]] = ROOT.TH1F(list_histos[24], "PU weight",  50, 0., 2.)
+h_base[list_histos[25]] = ROOT.TH1F(list_histos[25], "Trigger status",  10, -0.5, 9.5)
+h_base[list_histos[26]] = ROOT.TH1F(list_histos[26], "Number of electrons",  10, 0, 10)
+h_base[list_histos[27]] = ROOT.TH1F(list_histos[27], "Number of muons"    ,  10, 0, 10)
+h_base[list_histos[28]] = ROOT.TH1F(list_histos[28], "Number of taus"     ,  10, 0, 10)
 
 ##Open the output
 fOut = ROOT.TFile(output_filename,"RECREATE")
@@ -136,12 +173,18 @@ tree_signalreg.Branch('mcweight',_mcweight,'mcweight/D')
 tree_signalreg.Branch('lep1pt',_lep1pt,'lep1pt/D')
 tree_signalreg.Branch('lep2pt',_lep2pt,'lep2pt/D')
 
-print "Processing Sample ", sample_name
+print "Processing Sample ", sample_name, "with channel value", channel
 ##Loop on events
 if not isData:
-    norm_factor = Norm_Map[sample_name]*luminosity_norm
-    print "Norm_Map[", sample_name, "]: ", Norm_Map[sample_name]
-    
+    if not sample_name in Norm_Map:
+        print "WARNING! No norm factor in Norm_Map found! Setting to Norm_Map[HMuTau]"
+        norm_factor = Norm_Map["HMuTau"]
+    else :
+        norm_factor = Norm_Map[sample_name]
+    print "Norm_Map[", sample_name, "]: ", norm_factor
+    norm_factor = norm_factor*luminosity_norm
+
+
 root_file = ROOT.TFile(input_filename)
 mytree = root_file.Get("Events")
 
@@ -160,14 +203,23 @@ electron_ptmin = 33. #trigger
 require_both_high_pt = True #apply trigger pT thresholds to both
 muon_lowptmin = 10. #object
 electron_lowptmin = 15. #object
+tau_ptmin = 20. #object
+
 if runningEra == 1 :
     muon_ptmin = 28. #higher threshold
 if require_both_high_pt :
     muon_lowptmin = muon_ptmin
     electron_lowptmin = electron_ptmin
 
-print "This sample has ", mytree.GetEntriesFast(), " events"
+print "This sample has ", nentries, " events"
 
+#create a char array
+Muon_pfIsoId = array.array('B', [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])
+Tau_idAntiEle = array.array('B', [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])
+Tau_idAntiMu = array.array('B', [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])
+mytree.SetBranchAddress("Muon_pfIsoId", Muon_pfIsoId)
+mytree.SetBranchAddress("Tau_idAntiEle", Tau_idAntiEle)
+mytree.SetBranchAddress("Tau_idAntiMu", Tau_idAntiMu)
 for jentry in xrange(nentries):
     ientry = mytree.LoadTree( jentry )
     if ientry < 0:
@@ -181,59 +233,179 @@ for jentry in xrange(nentries):
     if (Nevts_per_sample/100000.).is_integer() :
         print "Processed ", Nevts_per_sample, " events..."
 
-    if mytree.nMuon == 2 :
+    #count the number of leptons in the event
+    nElectrons = 0
+    nMuons = 0
+    nTaus = 0
+    elec_dict = dict() # save a dictionary to find the objects again
+    muon_dict = dict()
+    tau_dict = dict()
 
-        lep1_pt = mytree.Muon_pt[0]
-        lep1_eta = mytree.Muon_eta[0]
-        lep1_phi = mytree.Muon_phi[0]
-        lep1_mass = mytree.Muon_mass[0]
+    if verbose > 0 and jentry%10 == 0:
+        print "*******************************************************"
+        print "Entry",jentry
 
-        lep2_pt = mytree.Muon_pt[1]
-        lep2_eta = mytree.Muon_eta[1]
-        lep2_phi = mytree.Muon_phi[1]
-        lep2_mass = mytree.Muon_mass[1]
+    if doCountingSelection :
+        for index in range(mytree.nElectron) :
+            doCount = mytree.Electron_pt[index] > minelept_count
+            if eleId_count == 1 :
+                doCount = doCount and mytree.Electron_mvaFall17V2Iso_WPL [index]
+            elif eleId_count == 2 :
+                doCount = doCount and mytree.Electron_mvaFall17V2Iso_WP80[index]
+            elif eleId_count == 3 :
+                doCount = doCount and mytree.Electron_mvaFall17V2Iso_WP90[index]
+            if doCount :
+                elec_dict[nElectrons] = index
+                nElectrons = nElectrons + 1
+            if verbose > 0 and jentry%10 == 0:
+                print ("Electron " + str(index)
+                       + " pT " + str(mytree.Electron_pt[index])
+                       + " WPL "  + str(mytree.Electron_mvaFall17V2Iso_WPL [index]) 
+                       + " WP80 " + str(mytree.Electron_mvaFall17V2Iso_WP80[index]) 
+                       + " WP90 " + str(mytree.Electron_mvaFall17V2Iso_WP90[index])
+                       + " doCount " + str(doCount))
+        for index in range(mytree.nMuon) :
+            doCount = mytree.Muon_pt[index] > minmupt_count
+            if muonId_count == 1 :
+                doCount = doCount and mytree.Muon_looseId [index]
+            elif muonId_count == 2 :
+                doCount = doCount and mytree.Muon_mediumId [index]
+            elif muonId_count == 3 :
+                doCount = doCount and mytree.Muon_tightId [index]
+            doCount = doCount and Muon_pfIsoId[index] >= muonIso_count
+            if doCount :
+                muon_dict[nMuons] = index
+                nMuons = nMuons + 1
+            if verbose > 0 and jentry%10 == 0:
+                print ("Muon " + str(index)
+                       + " pT " + str(mytree.Muon_pt[index])
+                       + " id loose "  + str(mytree.Muon_looseId[index]) 
+                       + " id medium " + str(mytree.Muon_mediumId[index]) 
+                       + " id tight " + str(mytree.Muon_tightId[index])
+                       + " iso id " + str(Muon_pfIsoId[index])
+                       + " doCount " + str(doCount))
+        for index in range(mytree.nTau) :
+            doCount = mytree.Tau_pt[index] > mintaupt_count
+            doCount = doCount and Tau_idAntiEle[index] >= tauAntiEle_count
+            doCount = doCount and Tau_idAntiMu[index] >= tauAntiMu_count
+            doCount = doCount and (mytree.Tau_idDecayMode[index] or not tauIdDecay_count)
+            if doCount :
+                tau_dict[nTaus] = index
+                nTaus = nTaus + 1
+            if verbose > 0 and jentry%10 == 0:
+                print ("Tau " + str(index)
+                       + " pT " + str(mytree.Tau_pt[index])
+                       + " antiEle id " + str(Tau_idAntiEle[index])
+                       + " antiMu id " + str(Tau_idAntiMu[index])
+                       + " decay id " + str(mytree.Tau_idDecayMode[index])
+                       + " doCount " + str(doCount))
+    else :
+        nElectrons = mytree.nElectron
+        nMuons     = mytree.nMuon
+        nTaus      = mytree.nTau
+        for index in range(nElectrons):
+            elec_dict[index] = index
+        for index in range(nMuons):
+            muon_dict[index] = index
+        for index in range(nTaus):
+            tau_dict[index] = index
+
+    if channel == 0 and nMuons + nElectrons != 2:
+        continue
+    elif channel == 1 and not (nMuons == 0 and nTaus == 1 and nElectrons == 1):
+        continue
+    elif channel == 2 and not (nMuons == 1 and nTaus == 1 and nElectrons == 0):
+        if verbose > 1 or (jentry%10 == 0 and verbose > 0):
+            print "Event failed with", nMuons, "(",mytree.nMuon, ") muons, ", nElectrons,"(",mytree.nElectron, ") electrons and", nTaus,"(",mytree.nTau, ") taus"
+        continue
+    if verbose > 1 or (jentry%10 == 0 and verbose > 0):
+        print "Event passed with", nMuons, "(",mytree.nMuon, ") muons, ", nElectrons,"(",mytree.nElectron, ") electrons and", nTaus,"(",mytree.nTau, ") taus"
+
+    if nMuons == 2 :
+
+        lep1_pt = mytree.Muon_pt    [muon_dict[0]]
+        lep1_eta = mytree.Muon_eta  [muon_dict[0]]
+        lep1_phi = mytree.Muon_phi  [muon_dict[0]]
+        lep1_mass = mytree.Muon_mass[muon_dict[0]]
+
+        lep2_pt = mytree.Muon_pt    [muon_dict[1]]
+        lep2_eta = mytree.Muon_eta  [muon_dict[1]]
+        lep2_phi = mytree.Muon_phi  [muon_dict[1]]
+        lep2_mass = mytree.Muon_mass[muon_dict[1]]
         if doFullSel and (lep1_pt <= muon_ptmin and lep2_pt <= muon_ptmin) :
             continue
         if lep1_pt <= muon_lowptmin or lep2_pt <= muon_lowptmin :
             continue
-    elif mytree.nElectron == 2 :
+    elif nElectrons == 2 :
 
-        lep1_pt = mytree.Electron_pt[0]
-        lep1_eta = mytree.Electron_eta[0]
-        lep1_phi = mytree.Electron_phi[0]
-        lep1_mass = mytree.Electron_mass[0]
+        lep1_pt = mytree.Electron_pt    [elec_dict[0]]
+        lep1_eta = mytree.Electron_eta  [elec_dict[0]]
+        lep1_phi = mytree.Electron_phi  [elec_dict[0]]
+        lep1_mass = mytree.Electron_mass[elec_dict[0]]
 
-        lep2_pt = mytree.Electron_pt[1]
-        lep2_eta = mytree.Electron_eta[1]
-        lep2_phi = mytree.Electron_phi[1]
-        lep2_mass = mytree.Electron_mass[1]
+        lep2_pt = mytree.Electron_pt    [elec_dict[1]]
+        lep2_eta = mytree.Electron_eta  [elec_dict[1]]
+        lep2_phi = mytree.Electron_phi  [elec_dict[1]]
+        lep2_mass = mytree.Electron_mass[elec_dict[1]]
         if doFullSel and (lep1_pt <= electron_ptmin and lep2_pt <= electron_ptmin) :
             continue
         if lep1_pt <= electron_lowptmin or lep2_pt <= electron_lowptmin :
             continue
+        if not mytree.Electron_mvaFall17V2Iso_WP80[elec_dict[0]] or not mytree.Electron_mvaFall17V2Iso_WP80[elec_dict[1]] :
+            continue
 
-    else :
+    elif channel == 0 : #e+mu
+        lep1_pt = mytree.Muon_pt    [muon_dict[0]]
+        lep1_eta = mytree.Muon_eta  [muon_dict[0]]
+        lep1_phi = mytree.Muon_phi  [muon_dict[0]]
+        lep1_mass = mytree.Muon_mass[muon_dict[0]]
 
-        lep1_pt = mytree.Muon_pt[0]
-        lep1_eta = mytree.Muon_eta[0]
-        lep1_phi = mytree.Muon_phi[0]
-        lep1_mass = mytree.Muon_mass[0]
-
-        lep2_pt = mytree.Electron_pt[0]
-        lep2_eta = mytree.Electron_eta[0]
-        lep2_phi = mytree.Electron_phi[0]
-        lep2_mass = mytree.Electron_mass[0]
+        lep2_pt = mytree.Electron_pt    [elec_dict[0]]
+        lep2_eta = mytree.Electron_eta  [elec_dict[0]]
+        lep2_phi = mytree.Electron_phi  [elec_dict[0]]
+        lep2_mass = mytree.Electron_mass[elec_dict[0]]
         if doFullSel and (lep1_pt <= muon_ptmin and lep2_pt <= electron_ptmin) :
             continue
         if lep1_pt <= muon_lowptmin or lep2_pt <= electron_lowptmin :
             continue
+        if not mytree.Electron_mvaFall17V2Iso_WP80[elec_dict[0]] :
+            continue
 
+    elif channel == 1 : #e+tau
+        lep1_pt   = mytree.Electron_pt  [elec_dict[0]]
+        lep1_eta  = mytree.Electron_eta [elec_dict[0]]
+        lep1_phi  = mytree.Electron_phi [elec_dict[0]]
+        lep1_mass = mytree.Electron_mass[elec_dict[0]]
+
+        lep2_pt   = mytree.Tau_pt  [tau_dict[0]]
+        lep2_eta  = mytree.Tau_eta [tau_dict[0]]
+        lep2_phi  = mytree.Tau_phi [tau_dict[0]]
+        lep2_mass = mytree.Tau_mass[tau_dict[0]]
+
+        if lep1_pt <= electron_ptmin :#or lep2_pt <= tau_ptmin :
+            continue
+        if not mytree.Electron_mvaFall17V2Iso_WP80[0] :
+            continue
+
+    elif channel == 2 : #mu+tau
+        lep1_pt   = mytree.Muon_pt  [muon_dict[0]]
+        lep1_eta  = mytree.Muon_eta [muon_dict[0]]
+        lep1_phi  = mytree.Muon_phi [muon_dict[0]]
+        lep1_mass = mytree.Muon_mass[muon_dict[0]]
+
+        lep2_pt   = mytree.Tau_pt  [tau_dict[0]]
+        lep2_eta  = mytree.Tau_eta [tau_dict[0]]
+        lep2_phi  = mytree.Tau_phi [tau_dict[0]]
+        lep2_mass = mytree.Tau_mass[tau_dict[0]]
+
+        if lep1_pt <= muon_ptmin or lep2_pt <= tau_ptmin :
+            continue
+    else : #no selection
+        continue    
     lep1_FourMom.SetPtEtaPhiM(lep1_pt,lep1_eta,lep1_phi,lep1_mass)
     lep2_FourMom.SetPtEtaPhiM(lep2_pt,lep2_eta,lep2_phi,lep2_mass)
     Zcand_FourMom = lep1_FourMom + lep2_FourMom
 
-    if hasattr(mytree, 'Electron_mvaFall17V2Iso_WP80') and not mytree.Electron_mvaFall17V2Iso_WP80[0] :  #FIXME
-        continue
 
     jet_FourMom  = ROOT.TLorentzVector()
     njets_25     =  0
@@ -300,27 +472,30 @@ for jentry in xrange(nentries):
     #Lepton scale factors
     lep1_weight = 1.
     lep2_weight = 1.
+    isSingleMuTrigger_LOW = mytree.HLT_IsoMu24
+    if runningEra == 1:
+        isSingleMuTrigger_LOW = mytree.HLT_IsoMu27
+    isSingleMuTrigger_HIGH = mytree.HLT_Mu50
+    if runningEra == 0 :
+        isSingleEleTrigger = mytree.HLT_Ele27_WPTight_Gsf
+    elif runningEra == 1 :
+        isSingleEleTrigger = mytree.HLT_Ele32_WPTight_Gsf_L1DoubleEG
+    elif runningEra == 2 :
+        isSingleEleTrigger = mytree.HLT_Ele32_WPTight_Gsf
     if not isData :
-        if mytree.nMuon == 2 : # Get muon scale factors, which are different for two groups of datasets, and weight them for the respective integrated lumi 
-
-            isSingleMuTrigger_LOW = mytree.HLT_IsoMu24
-            if runningEra == 1:
-                isSingleMuTrigger_LOW = mytree.HLT_IsoMu27
+        if nMuons == 2 : # Get muon scale factors, which are different for two groups of datasets, and weight them for the respective integrated lumi 
 
             lep1_weight = myWF.get_muon_scale(lep1_pt,lep1_eta,isSingleMuTrigger_LOW,runningEra)
             lep2_weight = myWF.get_muon_scale(lep2_pt,lep2_eta,isSingleMuTrigger_LOW,runningEra)
 
         ############### ELECTRON SFs ##############
-        elif mytree.nElectron == 2 :
-            lep1_weight = myWF.get_ele_scale(lep1_pt, lep1_eta + mytree.Electron_deltaEtaSC[0],runningEra)
-            lep2_weight = myWF.get_ele_scale(lep2_pt, lep2_eta + mytree.Electron_deltaEtaSC[1],runningEra)
-        elif mytree.nMuon == 1 :
-            isSingleMuTrigger_LOW = mytree.HLT_IsoMu24
-            if runningEra == 1:
-                isSingleMuTrigger_LOW = mytree.HLT_IsoMu27
-
+        elif nElectrons == 2 :
+            lep1_weight = myWF.get_ele_scale(lep1_pt, lep1_eta + mytree.Electron_deltaEtaSC[elec_dict[0]],runningEra)
+            lep2_weight = myWF.get_ele_scale(lep2_pt, lep2_eta + mytree.Electron_deltaEtaSC[elec_dict[1]],runningEra)
+        elif nMuons == 1 :
             lep1_weight = myWF.get_muon_scale(lep1_pt,lep1_eta,isSingleMuTrigger_LOW,runningEra)
-            lep2_weight = myWF.get_ele_scale(lep2_pt, lep2_eta + mytree.Electron_deltaEtaSC[0],runningEra)
+            if nElectrons == 1 :
+                lep2_weight = myWF.get_ele_scale(lep2_pt, lep2_eta + mytree.Electron_deltaEtaSC[elec_dict[0]],runningEra)
 
         ############### Multiply weights and SFs for MC. Set weight to 1 for data ###############
         MC_Weight = mytree.genWeight
@@ -342,7 +517,7 @@ for jentry in xrange(nentries):
     _lep1pt[0]      = lep1_pt
     _lep2pt[0]      = lep2_pt
 
-    if mytree.nMuon == 1 and select_bool:
+    if nMuons != 2 and nElectrons != 2 and select_bool:
         Nevts_expected += Event_Weight # Increment the number of events survived in the analyzed sample
    
     ############################################################################
@@ -350,12 +525,14 @@ for jentry in xrange(nentries):
     #------------------------------- Fill histos ------------------------------#
     #                                                                          #
     ############################################################################
-    if mytree.nMuon == 1 :
+    triggerStatus = isSingleMuTrigger_LOW + 2*isSingleMuTrigger_HIGH + 4*isSingleEleTrigger
+    
+    if nMuons != 2 and nElectrons != 2 :
         if select_bool :
             mll  = Zcand_FourMom.M()
             ptll = Zcand_FourMom.Pt()
             is_blind = ((mll > 84. and mll < 101.)
-                        or (mll > 115. and mll < 135.))
+                        or (mll > 115. and mll < 135.)) and channel == 0
             
             if not isData or not is_blind :
                 h_base["h_Mmue"].Fill(mll,Event_Weight)
@@ -385,12 +562,20 @@ for jentry in xrange(nentries):
                     h_base["h_lep2weight"].Fill(lep2_weight,Event_Weight/lep2_weight)
                 else :
                     h_base["h_lep2weight"].Fill(lep2_weight)        
-            
+                if PU_Weight > 0. :
+                    h_base["h_puweight"].Fill(PU_Weight, Event_Weight/PU_Weight)
+                else :
+                    h_base["h_puweight"].Fill(PU_Weight)
             h_base["h_npvs"].Fill(nPV,Event_Weight)
             h_base["h_cuts"].Fill(9,Event_Weight) #accepted events in cut flow
+            h_base["h_trigger"].Fill(triggerStatus, Event_Weight)
+            h_base["h_nelec"].Fill(mytree.nElectron, Event_Weight)
+            h_base["h_nmuon"].Fill(mytree.nMuon, Event_Weight)
+            h_base["h_ntau" ].Fill(mytree.nTau, Event_Weight)
             tree_signalreg.Fill()
+            
         #End selection requirement
-
+        
         if select_bool or (metsel and nbjets_25 == 0 and not jetsel) :
             h_base["h_jetptmax"].Fill(jetptmax,Event_Weight)
         if select_bool or (jetsel and nbjets_25 == 0 and not metsel) :
