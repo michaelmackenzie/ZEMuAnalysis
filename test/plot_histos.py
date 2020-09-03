@@ -41,13 +41,12 @@ for hname in list_histos:
 
 # Color mask must have the same number of entries as non-QCD backgrounds + 1 (that is the cumulative QCD background)
 colors_mask = dict()
-colors_mask["ttbarWlnu"]           = 12
-colors_mask["ttbar"]               = ROOT.kYellow-8
-colors_mask["ttbarlnu"]            = ROOT.kAzure+7
+colors_mask["ttbar"]               = ROOT.kAzure+7
 colors_mask["DY"]                  = ROOT.kViolet-6
 colors_mask["STtW"]                = ROOT.kMagenta+1
 colors_mask["WZ"]                  = ROOT.kBlue-7
 colors_mask["WW"]                  = ROOT.kPink+1
+colors_mask["WWW"]                 = ROOT.kPink+2
 colors_mask["Wlnu"]                = ROOT.kCyan-7
 colors_mask["GammaJets"]           = ROOT.kCyan-1
 colors_mask["ZZ"]                  = ROOT.kOrange-3
@@ -188,11 +187,11 @@ for histo_name in list_histos:
 
     if histo_name == "h_lep1eta":
         hstack[histo_name].GetXaxis().SetTitle("#eta_{l1}")
-        hstack[histo_name].SetMaximum(1500.)
+        #hstack[histo_name].SetMaximum(1500.)
 
     if histo_name == "h_lep2eta":
         hstack[histo_name].GetXaxis().SetTitle("#eta_{l2}")
-        hstack[histo_name].SetMaximum(1500.)
+        #hstack[histo_name].SetMaximum(1500.)
 
     if histo_name == "h_lep1phi":
         hstack[histo_name].GetXaxis().SetTitle("#phi_{l1}")
@@ -211,7 +210,7 @@ for histo_name in list_histos:
 
     if histo_name == "h_met_pt":
         hstack[histo_name].GetXaxis().SetTitle("MET p_{T} (25 GeV/c)")
-        hstack[histo_name].SetMaximum(1300.)
+        hstack[histo_name].SetMaximum(2500.)
 
     if histo_name == "h_jetptmax":
         hstack[histo_name].GetXaxis().SetTitle("p_{T} of hardest jet (25 GeV/c)")

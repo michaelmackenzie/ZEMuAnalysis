@@ -6,6 +6,7 @@ rm trees/*2018*.root
 doFullSel=0 #0 or 1
 channel=0 #0 = emu, 1 = mutau, 2 = etau
 
+<<<<<<< HEAD
 echo "Running selections for channel " ${channel} " with doFullSel =" ${doFullSel}
 
 python generate_histos.py 2 ${doFullSel} rootfiles/latest_production/MC/backgrounds/ZEMuAnalysis_DY50_SigRegion_2018.root histos/latest_production/ZEMuHistos_DY_2018.root ${channel}
@@ -17,15 +18,28 @@ python generate_histos.py 2 ${doFullSel} rootfiles/latest_production/MC/backgrou
 python generate_histos.py 2 ${doFullSel} rootfiles/latest_production/MC/backgrounds/ZEMuAnalysis_ttbarToSemiLeptonic_SigRegion_2018.root histos/latest_production/ZEMuHistos_ttbar_2018.root ${channel}
 python generate_histos.py 2 ${doFullSel} rootfiles/latest_production/MC/backgrounds/ZEMuAnalysis_Wlnu_SigRegion_2018.root histos/latest_production/ZEMuHistos_Wlnu_2018.root ${channel}
 
-hadd -f trees/ZEMuAnalysis_Background_2018.root histos/latest_production/*2018*.root
+hadd -f trees/LFVAnalysis_Background_2018.root histos/latest_production/*2018*.root
 
 python generate_histos.py 2 ${doFullSel} rootfiles/latest_production/MC/signals/ZEMuAnalysis_Signal_2018.root histos/latest_production/ZEMuHistos_Signal_2018.root ${channel}
 
-cp histos/latest_production/ZEMuHistos_Signal_2018.root trees/ZEMuAnalysis_Signal_2018.root
+# python generate_histos.py 2 1 rootfiles/latest_production/MC/backgrounds/ZEMuAnalysis_WWW_SigRegion_2018.root histos/latest_production/ZEMuHistos_WWW_2018.root
+# python generate_histos.py 0 1 rootfiles/latest_production/MC/backgrounds/ZEMuAnalysis_QCDDoubleEMEnrich30toInf_SigRegion_2018.root histos/latest_production/ZEMuHistos_QCDDoubleEMEnrich30toInf_2018.root
+# python generate_histos.py 0 1 rootfiles/latest_production/MC/backgrounds/ZEMuAnalysis_QCDDoubleEMEnrich40toInf_SigRegion_2018.root histos/latest_production/ZEMuHistos_QCDDoubleEMEnrich40toInf_2018.root
+# python generate_histos.py 2 1 rootfiles/latest_production/MC/backgrounds/ZEMuAnalysis_ZZ_SigRegion_2018.root histos/latest_production/ZEMuHistos_ZZ_2018.root
 
-# #Merge samples
+hadd -f trees/LFVAnalysis_Background_2018.root histos/latest_production/*2018*.root
+
+# cp histos/latest_production/ZEMuHistos_Signal_2018.root trees/ZEMuAnalysis_Signal_2018.root
+
+#Merge samples
+hadd histos/latest_production/ZEMuHistos_ttbar_2018.root histos/latest_production/ZEMuHistos_ttbar*_2018.root
+rm histos/latest_production/ZEMuHistos_ttbarsemilep_2018.root histos/latest_production/ZEMuHistos_ttbarlnu_2018.root
+
 hadd histos/latest_production/ZEMuHistos_STtW_2018.root histos/latest_production/ZEMuHistos_Single*ToptW_2018.root
 rm histos/latest_production/ZEMuHistos_Single*ToptW_2018.root
+
+hadd histos/latest_production/ZEMuHistos_QCD_2018.root histos/latest_production/ZEMuHistos_QCDDoubleEM*_2018.root
+rm histos/latest_production/ZEMuHistos_QCDDoubleEM*_2018.root
 
 #Now do the data
 

@@ -1,3 +1,4 @@
+from CRABAPI.RawCommand import crabCommand
 from CRABClient.UserUtilities import config
 from WMCore.Configuration import Configuration
 config = Configuration()
@@ -48,9 +49,7 @@ if __name__ == '__main__':
     config.General.workArea = 'crab_projects/samples_MC_2016/'
     config.General.requestName = '2016_ZEMuAnalysis_Signal'
     config.Data.inputDataset = '/ZEMuAnalysis_2016_8028V1/pellicci-ZEMuAnalysis_NANOAOD_10218V1-b1c578360797952dfc156561d5f36519/USER'
-    p = Process(target=submit, args=(config,))
-    p.start()
-    p.join()
+    crabCommand('submit', config = config)
 
     config.JobType.scriptArgs = ['isData=MC','year=2016']
     config.General.workArea = 'crab_projects/samples_MC_2016/'
@@ -96,28 +95,28 @@ if __name__ == '__main__':
 
     ################### 2017 Samples #########################
 
-    # config.JobType.scriptArgs = ['isData=MC','year=2017']
-    # config.General.workArea = 'crab_projects/samples_MC_2017/'
-    # config.General.requestName = '2017_ZEMuAnalysis_Signal'
-    # config.Data.inputDataset = '/ZEMuAnalysis_2017_934V1/pellicci-ZEMuAnalysis_NANOAOD_2017_10218V2-df769e3b6a68f1e897c86e71b2345849/USER'
-    # p = Process(target=submit, args=(config,))
-    # p.start()
-    # p.join()
+    config.JobType.scriptArgs = ['isData=MC','year=2017']
+    config.General.workArea = 'crab_projects/samples_MC_2017/'
+    config.General.requestName = '2017_ZEMuAnalysis_Signal'
+    config.Data.inputDataset = '/ZEMuAnalysis_2017_934V1/pellicci-ZEMuAnalysis_NANOAOD_2017_10218V2-df769e3b6a68f1e897c86e71b2345849/USER'
+    p = Process(target=submit, args=(config,))
+    p.start()
+    p.join()
 
     ################### 2018 Samples #########################
 
-    # config.JobType.scriptArgs = ['isData=MC','year=2018']
-    # config.General.workArea = 'crab_projects/samples_MC_2018/'
-    # config.General.requestName = '2018_ZEMuAnalysis_Signal'
-    # config.Data.inputDataset = '/ZEMuAnalysis_10218V2/pellicci-ZEMuAnalysis_NANOAOD_10218V1-a7880b551d3b12f0ed185e04212304eb/USER'
-    # p = Process(target=submit, args=(config,))
-    # p.start()
-    # p.join()
+    config.JobType.scriptArgs = ['isData=MC','year=2018']
+    config.General.workArea = 'crab_projects/samples_MC_2018/'
+    config.General.requestName = '2018_ZEMuAnalysis_Signal'
+    config.Data.inputDataset = '/ZEMuAnalysis_10218V2/pellicci-ZEMuAnalysis_NANOAOD_10218V1-a7880b551d3b12f0ed185e04212304eb/USER'
+    p = Process(target=submit, args=(config,))
+    p.start()
+    p.join()
 
-    # config.JobType.scriptArgs = ['isData=MC','year=2018']
-    # config.General.workArea = 'crab_projects/samples_MC_2018/'
-    # config.General.requestName = '2018_LFVAnalysis_HEMu'
-    # config.Data.inputDataset = '/LFVAnalysis_HEMu_2018_10218V1/mimacken-LFVAnalysis_NANOAOD_8028V1-99b0758841467aa49bae030484c7d875/USER'
-    # p = Process(target=submit, args=(config,))
-    # p.start()
-    # p.join()
+    config.JobType.scriptArgs = ['isData=MC','year=2018']
+    config.General.workArea = 'crab_projects/samples_MC_2018/'
+    config.General.requestName = '2018_LFVAnalysis_HEMu'
+    config.Data.inputDataset = '/LFVAnalysis_HEMu_2018_10218V1/mimacken-LFVAnalysis_NANOAOD_8028V1-99b0758841467aa49bae030484c7d875/USER'
+    p = Process(target=submit, args=(config,))
+    p.start()
+    p.join()

@@ -24,6 +24,7 @@ keep Muon_charge
 keep Muon_looseId
 keep Muon_mediumId
 keep Muon_tightId
+keep Muon_triggerIdLoose
 
 keep FsrPhoton_*
 
@@ -78,4 +79,3 @@ keep genWeight*
 keep puWeight*
 
 keep PV_npvs*
-

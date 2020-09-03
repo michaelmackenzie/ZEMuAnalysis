@@ -20,8 +20,8 @@ if not doLocal :
 from StandardModel.ZEMuAnalysis.runSkimModule import *
 from PhysicsTools.NanoAODTools.postprocessing.modules.common.puWeightProducer import *
 
-# inputfile = ['/afs/cern.ch/user/p/pellicci/cernbox/ROOT/ZEMuAnalysis/NANOAOD/191120_10218V1/ZEMuAnalysis_pythia8_NANOAOD_2018_1.root']
 if doLocal:
+    # inputfile = ['/afs/cern.ch/user/p/pellicci/cernbox/ROOT/ZEMuAnalysis/NANOAOD/191120_10218V1/ZEMuAnalysis_pythia8_NANOAOD_2018_1.root']
     inputfile = ['/eos/uscms/store/user/mmackenz/LFVAnalysis_ZMuTau_2016_8028V1/LFVAnalysis_NANOAOD_8028V1/200716_213639/0000/ZEMuAnalysis_pythia8_NANOAOD_2016_1.root']
     # inputfile = ['/eos/uscms/store/user/mmackenz/LFVAnalysis_HEMu_2016_8028V1/LFVAnalysis_NANOAOD_8028V1/200708_163332/0000/ZEMuAnalysis_pythia8_NANOAOD_2016_1.root']
     # inputfile = ['/eos/uscms/store/user/mmackenz/LFVAnalysis_HMuTau_2016_8028V1/LFVAnalysis_NANOAOD_8028V1/200716_180028/0000/ZEMuAnalysis_pythia8_NANOAOD_2016_1.root']

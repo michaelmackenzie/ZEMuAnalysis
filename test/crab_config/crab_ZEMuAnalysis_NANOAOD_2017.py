@@ -3,7 +3,7 @@ config = config()
  
 config.section_('General')
 config.General.transferOutputs = True
-config.General.requestName = 'ZEMuAnalysis_Pythia8_NANOAOD_2017_10218V1'
+config.General.requestName = 'ZEMuAnalysis_Pythia8_NANOAOD_2017_10218V2'
 config.General.workArea = 'crab_projects'
 
 config.section_('JobType')
@@ -19,7 +19,7 @@ config.Data.splitting = 'FileBased'
 config.Data.unitsPerJob = 10
 config.Data.publication = True
 
-config.Data.outputDatasetTag = 'ZEMuAnalysis_NANOAOD_2017_10218V1'
+config.Data.outputDatasetTag = 'ZEMuAnalysis_NANOAOD_2017_10218V2'
 
 config.section_('Site')
 config.Site.storageSite = 'T2_IT_Bari'

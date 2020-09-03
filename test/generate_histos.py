@@ -41,7 +41,7 @@ if runningEra == 0:
     jetIdflag = 7
     jetPUIdflag = 6
 if runningEra == 1:
-    luminosity_norm = 41.48
+    luminosity_norm = 41.53
     jetIdflag = 4
     jetPUIdflag = 6
 if runningEra == 2:
@@ -406,7 +406,6 @@ for jentry in xrange(nentries):
     lep2_FourMom.SetPtEtaPhiM(lep2_pt,lep2_eta,lep2_phi,lep2_mass)
     Zcand_FourMom = lep1_FourMom + lep2_FourMom
 
-
     jet_FourMom  = ROOT.TLorentzVector()
     njets_25     =  0
     njets_25_dr  =  0   #njets with delta r > 0.3 from leptons
@@ -419,44 +418,44 @@ for jentry in xrange(nentries):
     jetlep1dr    = -1.  #delta r between hardest jet and lep 1
     jetlep2dr    = -1.  #delta r between hardest jet and lep 2
     
-    
     for jetcount in xrange(mytree.nJet) :
 
         if mytree.Jet_jetId[jetcount] < jetIdflag :
             continue
 
-        pt_of_jet = mytree.Jet_pt[jetcount]
+        jet_pt = mytree.Jet_pt[jetcount]
+        jet_eta = mytree.Jet_eta[jetcount]
+        jet_phi = mytree.Jet_phi[jetcount]
+        jet_mass = mytree.Jet_mass[jetcount]
 
-        if pt_of_jet < 50. and mytree.Jet_puId[jetcount] < jetPUIdflag :
+        if jet_pt < 50. and mytree.Jet_puId[jetcount] < jetPUIdflag :
             continue
 
-        jet_FourMom.SetPtEtaPhiM(pt_of_jet, mytree.Jet_eta[jetcount],
-                                 mytree.Jet_phi[jetcount], mytree.Jet_mass[jetcount])
+        jet_FourMom.SetPtEtaPhiM(jet_pt,jet_eta,jet_phi,jet_mass)
+
+
+        deltaR_lep1_jet = jet_FourMom.DeltaR(lep1_FourMom)
+        deltaR_lep2_jet = jet_FourMom.DeltaR(lep2_FourMom)
+
+        if deltaR_lep1_jet < 0.3 or deltaR_lep2_jet < 0.3 :
+            continue
+
 
         if pt_of_jet > 25. :
-            jetlep1deltar = lep1_FourMom.DeltaR(jet_FourMom)
-            jetlep2deltar = lep2_FourMom.DeltaR(jet_FourMom)
-            passdeltar = jetlep1deltar > 0.3 and jetlep2deltar > 0.3
-            if pt_of_jet > jetptmax and (not jetptusedr or passdeltar) :
-                jetptmax = pt_of_jet
+            njets_25 = njets_25 + 1    
+            if jet_pt > jetptmax :
+                jetptmax = jet_pt
                 if hasattr(mytree, 'Jet_btagDeepB') :
                     jetbtag = mytree.Jet_btagDeepB[jetcount]
-                jetlep1dr = jetlep1deltar
-                jetlep2dr = jetlep2deltar
-            if passdeltar :
-                njets_25_dr = njets_25_dr + 1
-            njets_25 = njets_25 + 1
             if hasattr(mytree, 'Jet_btagDeepB') and mytree.Jet_btagDeepB[jetcount] > 0.4184 :
                 nbjets_25 = nbjets_25 + 1
-                if passdeltar :
-                    nbjets_25_dr = nbjets_25_dr + 1
         #End jet loop
     met_pt_puppi = mytree.PuppiMET_pt
     met_sumEt_puppi = mytree.PuppiMET_sumEt
 
     jetsel = jetptmax < 78.
     metsel = met_pt_puppi < 28.
-    select_bool = (jetsel and metsel and ((nbjets_25_dr == 0 and bjetusedr) or (nbjets_25 == 0 and not bjetusedr))) or not doFullSel
+    select_bool = (jetsel and metsel and nbjets_25 == 0) or not doFullSel
 
     if select_bool :
         Nevts_selected = Nevts_selected + 1
@@ -485,8 +484,10 @@ for jentry in xrange(nentries):
     if not isData :
         if nMuons == 2 : # Get muon scale factors, which are different for two groups of datasets, and weight them for the respective integrated lumi 
 
-            lep1_weight = myWF.get_muon_scale(lep1_pt,lep1_eta,isSingleMuTrigger_LOW,runningEra)
-            lep2_weight = myWF.get_muon_scale(lep2_pt,lep2_eta,isSingleMuTrigger_LOW,runningEra)
+        if mytree.nMuon == 2 : # Get muon scale factors, which are different for two groups of datasets, and weight them for the respective integrated lumi 
+
+            lep1_weight = myWF.get_muon_scale(lep1_pt,lep1_eta,isSingleMuTrigger_LOW,runningEra,isMuTrigger)
+            lep2_weight = myWF.get_muon_scale(lep2_pt,lep2_eta,isSingleMuTrigger_LOW,runningEra,isMuTrigger)
 
         ############### ELECTRON SFs ##############
         elif nElectrons == 2 :
@@ -496,7 +497,6 @@ for jentry in xrange(nentries):
             lep1_weight = myWF.get_muon_scale(lep1_pt,lep1_eta,isSingleMuTrigger_LOW,runningEra)
             if nElectrons == 1 :
                 lep2_weight = myWF.get_ele_scale(lep2_pt, lep2_eta + mytree.Electron_deltaEtaSC[elec_dict[0]],runningEra)
-
         ############### Multiply weights and SFs for MC. Set weight to 1 for data ###############
         MC_Weight = mytree.genWeight
         PU_Weight = 1.

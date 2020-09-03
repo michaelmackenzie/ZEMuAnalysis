@@ -7,6 +7,7 @@ rm trees/*2016*.root
 doFullSel=0 #0 or 1
 channel=0 #0 = emu, 1 = etau, 2 = mutau
 
+<<<<<<< HEAD
 outdir="emu"
 if [ $channel -eq 1 ]
 then
@@ -15,6 +16,11 @@ elif [ $channel -eq 2 ]
 then
     outdir="mutau"
 fi
+# python generate_histos.py 0 1 rootfiles/latest_production/MC/backgrounds/ZEMuAnalysis_WWW_SigRegion_2016.root histos/latest_production/ZEMuHistos_WWW_2016.root
+# python generate_histos.py 0 1 rootfiles/latest_production/MC/backgrounds/ZEMuAnalysis_QCDDoubleEMEnrich30to40_SigRegion_2016.root histos/latest_production/ZEMuHistos_QCDDoubleEMEnrich30to40_2016.root
+# python generate_histos.py 0 1 rootfiles/latest_production/MC/backgrounds/ZEMuAnalysis_QCDDoubleEMEnrich30toInf_SigRegion_2016.root histos/latest_production/ZEMuHistos_QCDDoubleEMEnrich30toInf_2016.root
+# python generate_histos.py 0 1 rootfiles/latest_production/MC/backgrounds/ZEMuAnalysis_QCDDoubleEMEnrich40toInf_SigRegion_2016.root histos/latest_production/ZEMuHistos_QCDDoubleEMEnrich40toInf_2016.root
+# python generate_histos.py 0 1 rootfiles/latest_production/MC/backgrounds/ZEMuAnalysis_ZZ_SigRegion_2016.root histos/latest_production/ZEMuHistos_ZZ_2016.root
 
 echo "Running selections for channel " ${channel} " = " ${outdir} "  with doFullSel =" ${doFullSel}
 
@@ -53,6 +59,9 @@ cp ${outdir}/LFVHistos_HMuTau_2016.root trees/LFVAnalysis_HMuTau_2016.root
 # #Merge samples
 hadd ${outdir}/LFVHistos_STtW_2016.root ${outdir}/LFVHistos_Single*ToptW_2016.root
 rm ${outdir}/LFVHistos_Single*ToptW_2016.root
+
+hadd histos/latest_production/LFVHistos_QCD_2016.root histos/latest_production/LFVHistos_QCDDoubleEM*_2016.root
+rm histos/latest_production/LFVHistos_QCDDoubleEM*_2016.root
 
 #Now do the data
 

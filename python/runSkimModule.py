@@ -345,7 +345,6 @@ class exampleProducer(Module):
         if not (mutau or etau or emu or mumu or ee):
             return False
 
-
         ## Filter by mass range ##
         # lep1 and lep2 should still be properly set from selection checks
         lep_mass = (lep1.p4() + lep2.p4()).M()
