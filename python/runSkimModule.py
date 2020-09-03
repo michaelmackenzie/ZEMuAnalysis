@@ -34,7 +34,7 @@ class exampleProducer(Module):
         pass
     def analyze(self, event):
 
-        verbose = 10
+        verbose = 1
         self.seen = self.seen + 1
         
         """process event, return True (go to next module) or False (fail, go to next event)"""
