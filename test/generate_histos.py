@@ -78,10 +78,10 @@ mll_min = 75.
 mll_max = 160.
 mll_bin = 2
 if channel != 0 : #lower mass min in tau cases
-    mll_min = 0.
+    mll_min = 50.
     mll_bin = 5
 mll_nbins = int(round((mll_max-mll_min)/mll_bin))
-if mll_nbins%2 != 0: #force even number of bins
+if mll_nbins%2 != 0: #force even number of bins to allow at least 1 rebinning
     mll_nbins = mll_nbins + 1
 
 #whether to use selection criteria or not for lepton vetos
