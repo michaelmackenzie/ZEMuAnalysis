@@ -25,11 +25,16 @@ class exampleProducer(Module):
     def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         self.out = wrappedOutputTree
         self.out.branch("M_ll" ,  "F"); # di-lepton mass
+        self.out.branch("leptonOneFlavor",  "I"); # lepton one flavor
+        self.out.branch("leptonOneIndex" ,  "I"); # lepton one index
+        self.out.branch("leptonTwoFlavor",  "I"); # lepton two flavor
+        self.out.branch("leptonTwoIndex" ,  "I"); # lepton two index
+        
     def endFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         pass
     def analyze(self, event):
 
-        verbose = 1
+        verbose = 10
         self.seen = self.seen + 1
         
         """process event, return True (go to next module) or False (fail, go to next event)"""
@@ -126,7 +131,7 @@ class exampleProducer(Module):
                      (eleId_count == 1 and electrons[index].mvaFall17V2Iso_WPL ) or
                      (eleId_count == 2 and electrons[index].mvaFall17V2Iso_WP80) or
                      (eleId_count == 3 and electrons[index].mvaFall17V2Iso_WP90))) :
-                    elec_dict[nElectrons] = electrons[index]
+                    elec_dict[nElectrons] = index
                     nElectrons = nElectrons + 1
             for index in range(len(muons)) :
                 if(verbose > 9 and self.seen % 10 == 0):
@@ -136,7 +141,7 @@ class exampleProducer(Module):
                      (muonId_count == 2 and muons[index].mediumId) or
                      (muonId_count == 3 and muons[index].tightId)) and
                     muons[index].pfRelIso04_all < muonIso_count) :
-                    muon_dict[nMuons] = muons[index]
+                    muon_dict[nMuons] = index
                     nMuons = nMuons + 1
             for index in range(len(taus)) :
                 if(verbose > 9 and self.seen % 10 == 0):
@@ -155,15 +160,15 @@ class exampleProducer(Module):
                         deltaRCheck = True
                         if tauDeltaR_count > 0:
                             for i_elec in range(nElectrons):
-                                deltaRCheck = deltaRCheck and taus[index].p4().DeltaR(elec_dict[i_elec].p4()) > tauDeltaR_count
+                                deltaRCheck = deltaRCheck and taus[index].p4().DeltaR(electrons[elec_dict[i_elec]].p4()) > tauDeltaR_count
                                 if not deltaRCheck:
                                     break
                             for i_muon in range(nMuons):
                                 if not deltaRCheck:
                                     break
-                                deltaRCheck = deltaRCheck or taus[index].p4().DeltaR(muon_dict[i_muon]) > tauDeltaR_count
+                                deltaRCheck = deltaRCheck or taus[index].p4().DeltaR(muons[muon_dict[i_muon]].p4()) > tauDeltaR_count
                         if deltaRCheck:
-                            tau_dict[nTaus] = taus[index]
+                            tau_dict[nTaus] = index
                             nTaus = nTaus + 1
         else :
             nElectrons = len(electrons)
@@ -211,14 +216,27 @@ class exampleProducer(Module):
         emu   = False
         ee    = False
         mumu  = False
+
+        ## store selected lepton info ##
+        leptonOneIndex  = -1
+        leptonOneFlavor = 0
+        leptonTwoIndex  = -1
+        leptonTwoFlavor = 0
+        
         # mutau
         if nMuons == 1 and nTaus == 1:
             if doCountingSelection :
-                lep1 = muon_dict[0]
-                lep2 = tau_dict[0]
+                leptonOneIndex = muon_dict[0]
+                leptonTwoIndex = tau_dict[0]
+                lep1 = muons[muon_dict[0]]
+                lep2 = taus[tau_dict[0]]
             else :
+                leptonOneIndex = 0
+                leptonTwoIndex = 0
                 lep1 = muons[0]
                 lep2 = taus[0]
+            leptonOneFlavor = lep1.charge*-13
+            leptonTwoFlavor = lep2.charge*-15
             mutau = lep1.tightId and lep1.pfRelIso04_all < muonIso and lep1.pt > minmupt and lep2.pt > mintaupt
             if useDeepNNTauIDs:
                 mutau = mutau and lep2.idDeepTau2017v2p1VSe >= tauAntiEle
@@ -234,11 +252,17 @@ class exampleProducer(Module):
         # etau
         if nElectrons == 1 and nTaus == 1:
             if doCountingSelection :
-                lep1 = elec_dict[0]
-                lep2 = tau_dict[0]
+                leptonOneIndex = elec_dict[0]
+                leptonTwoIndex = tau_dict[0]
+                lep1 = electrons[elec_dict[0]]
+                lep2 = taus[tau_dict[0]]
             else :
+                leptonOneIndex = 0
+                leptonTwoIndex = 0
                 lep1 = electrons[0]
                 lep2 = taus[0]
+            leptonOneFlavor = lep1.charge*-11
+            leptonTwoFlavor = lep2.charge*-15
             etau = lep1.mvaFall17V2Iso_WP80
             etau = etau and (math.fabs(lep1.eta + lep1.deltaEtaSC) < 1.442 or math.fabs(lep1.eta + lep1.deltaEtaSC) > 1.566) 
             etau = etau and lep1.pt > minelept and lep2.pt > mintaupt
@@ -260,22 +284,34 @@ class exampleProducer(Module):
         # emu
         if nElectrons == 1 and nMuons == 1:
             if doCountingSelection :
-                lep1 = elec_dict[0]
-                lep2 = muon_dict[0]
+                leptonOneIndex = elec_dict[0]
+                leptonTwoIndex = muon_dict[0]
+                lep1 = electrons[elec_dict[0]]
+                lep2 = muons[muon_dict[0]]
             else :
+                leptonOneIndex = 0
+                leptonTwoIndex = 0
                 lep1 = electrons[0]
                 lep2 = muons[0]
+            leptonOneFlavor = lep1.charge*-11
+            leptonTwoFlavor = lep2.charge*-13
             emu =  lep2.tightId and lep2.pfRelIso04_all < muonIso and lep1.mvaFall17V2Iso_WP80
             emu = emu and (math.fabs(lep1.eta + lep1.deltaEtaSC) < 1.442 or math.fabs(lep1.eta + lep1.deltaEtaSC) > 1.566)
             emu = emu and lep1.pt > mineleptlow and lep2.pt > minmuptlow
         # mumu
         elif nMuons == 2 and not (mutau or etau):
             if doCountingSelection :
-                lep1 = muon_dict[0]
-                lep2 = muon_dict[1]
+                leptonOneIndex = muon_dict[0]
+                leptonTwoIndex = muon_dict[1]
+                lep1 = muons[muon_dict[0]]
+                lep2 = muons[muon_dict[1]]
             else :
+                leptonOneIndex = 0
+                leptonTwoIndex = 1
                 lep1 = muons[0]
                 lep2 = muons[1]
+            leptonOneFlavor = lep1.charge*-13
+            leptonTwoFlavor = lep2.charge*-13
             mumu = lep1.tightId and lep2.tightId
             mumu = mumu and lep1.pfRelIso04_all < muonIso and lep2.pfRelIso04_all < muonIso
             mumu = mumu and (lep1.pt > minmupt or lep2.pt > minmupt)
@@ -283,11 +319,17 @@ class exampleProducer(Module):
         # ee
         elif nElectrons == 2 and not (mutau or etau):
             if doCountingSelection :
-                lep1 = elec_dict[0]
-                lep2 = elec_dict[1]
+                leptonOneIndex = elec_dict[0]
+                leptonTwoIndex = elec_dict[1]
+                lep1 = electrons[elec_dict[0]]
+                lep2 = electrons[elec_dict[1]]
             else :
+                leptonOneIndex = 0
+                leptonTwoIndex = 1
                 lep1 = electrons[0]
                 lep2 = electrons[1]
+            leptonOneFlavor = lep1.charge*-11
+            leptonTwoFlavor = lep2.charge*-11
             ee = lep1.mvaFall17V2Iso_WP80 and lep2.mvaFall17V2Iso_WP80
             ee = ee and (math.fabs(lep1.eta + lep1.deltaEtaSC) < 1.442 or math.fabs(lep1.eta + lep1.deltaEtaSC) > 1.566)
             ee = ee and (math.fabs(lep2.eta + lep2.deltaEtaSC) < 1.442 or math.fabs(lep2.eta + lep2.deltaEtaSC) > 1.566)
@@ -353,6 +395,10 @@ class exampleProducer(Module):
             print "passing event."
 
         self.out.fillBranch("M_ll", lep_mass)
+        self.out.fillBranch("leptonOneFlavor", leptonOneFlavor)
+        self.out.fillBranch("leptonOneIndex" , leptonOneIndex)
+        self.out.fillBranch("leptonTwoFlavor", leptonTwoFlavor)
+        self.out.fillBranch("leptonTwoIndex" , leptonTwoIndex)
 
         # increment selection counts
         if emu:

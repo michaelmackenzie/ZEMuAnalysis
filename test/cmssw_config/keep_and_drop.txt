@@ -1,5 +1,7 @@
 # this is a comment
 drop * # start with all
+keep M_ll
+keep lepton*
 keep Electron_pt
 keep Electron_eta
 keep Electron_phi
