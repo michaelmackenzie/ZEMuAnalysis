@@ -59,10 +59,8 @@ class exampleProducer(Module):
         mintaupt = 20.
         
         ## jet parameters ##
-        jetIdflag   = 4
-        jetPUIdflag = 6
-        if self.runningEra == 0:
-            jetIdflag = 7 #different flag for 2016
+        jetIdflag   = 1
+        jetPUIdflag = 4
 
 
         ## muon isolation cut levels ##
@@ -84,10 +82,11 @@ class exampleProducer(Module):
         useDeepNNTauIDs = True
         
         muonIso    = muonIsoTight
-        tauAntiEle = 7 # (bitmask) MVA: 8 = tight, 16 = very tight deepNN:  1 = VVVLoose 2 = VVLoose 4 = VLoose   8 = Loose
+        tauAntiEle = 1 # (bitmask) MVA: 8 = tight, 16 = very tight deepNN:  1 = VVVLoose 2 = VVLoose 4 = VLoose   8 = Loose
         #                                                                  16 = Medium  32 = Tight  64 = VTight 128 = VVTight
-        tauAntiMu  = 1 # (bitmask) MVA: 1 = loose 2 = tight deepNN: 1 = VLoose 2 = Loose 4 = Medium 8 = Tight
-        tauAntiJet = 7 # (bitmask) deepNN: 1 = VVVLoose 2 = VVLoose 4 = VLoose 8 = Loose 16 = Medium 32 = Tight 64 = VTight 128 = VVTight
+        tauAntiEle_etau = 50 #higher veto requirement for ee -> e fake tau
+        tauAntiMu  = 10 # (bitmask) MVA: 1 = loose 2 = tight deepNN: 1 = VLoose 2 = Loose 4 = Medium 8 = Tight
+        tauAntiJet = 50 # (bitmask) deepNN: 1 = VVVLoose 2 = VVLoose 4 = VLoose 8 = Loose 16 = Medium 32 = Tight 64 = VTight 128 = VVTight
         tauIso     = 7 
         tauDeltaR  = 0.3
         
@@ -102,11 +101,11 @@ class exampleProducer(Module):
         eleId_count = 1 #0 = none 1 = WPL, 2 = WP80, 3 = WP90
         # taus
         mintaupt_count = 20.
-        tauAntiEle_count = 2
-        tauAntiMu_count = 2
+        tauAntiEle_count = 1
+        tauAntiMu_count = 1
         tauAntiJet_count = 4
         tauIso_count = 0
-        tauIdDecay_count = False
+        tauIdDecay_count = True
         tauDeltaR_count = 0.3 #distance from selected electrons/muons
         
 
@@ -114,6 +113,29 @@ class exampleProducer(Module):
         if maxMET > 0 and PuppiMET.pt > maxMET : #cut high MET events
             return False
 
+        ### check which triggers are fired ###
+        muonTriggered = False
+        electronTriggered = False
+        if self.runningEra == 0 :
+            if HLT.IsoMu24 or HLT.Mu50 :
+                muonTriggered = True
+            if HLT.Ele27_WPTight_Gsf :
+                electronTriggered = True
+        elif self.runningEra == 1 :
+            if HLT.IsoMu27 or HLT.Mu50 :
+                muonTriggered = True
+            if HLT.Ele32_WPTight_Gsf_L1DoubleEG and HLT.Ele35_WPTight_GsF_L1EGMT : #seems to be recommended to use L1 seed of HLT_Ele35 as well
+                electronTriggered = True
+        elif self.runningEra == 2 :
+            if HLT.IsoMu24 or HLT.Mu50 :
+                muonTriggered = True
+            if HLT.Ele32_WPTight_Gsf :
+                electronTriggered = True
+        if (verbose > 1 and self.seen % 100 == 0) or (verbose > 2 and self.seen % 10 == 0):
+            print "muonTriggered =",muonTriggered,"electronTriggered =",electronTriggered
+        #require a trigger
+        if not muonTriggered and not electronTriggered :
+            return False
 
         ################ count objects ####################
         nElectrons = 0
@@ -158,15 +180,15 @@ class exampleProducer(Module):
                             taus[index].idMVAnewDM2017v2 >= tauIso_count and
                             (taus[index].idDecayMode or not tauIdDecay_count))) :
                         deltaRCheck = True
-                        if tauDeltaR_count > 0:
+                        if tauDeltaR_count > 0: #check for overlap with accepted lepton
                             for i_elec in range(nElectrons):
                                 deltaRCheck = deltaRCheck and taus[index].p4().DeltaR(electrons[elec_dict[i_elec]].p4()) > tauDeltaR_count
                                 if not deltaRCheck:
                                     break
                             for i_muon in range(nMuons):
+                                deltaRCheck = deltaRCheck or taus[index].p4().DeltaR(muons[muon_dict[i_muon]].p4()) > tauDeltaR_count
                                 if not deltaRCheck:
                                     break
-                                deltaRCheck = deltaRCheck or taus[index].p4().DeltaR(muons[muon_dict[i_muon]].p4()) > tauDeltaR_count
                         if deltaRCheck:
                             tau_dict[nTaus] = index
                             nTaus = nTaus + 1
@@ -185,29 +207,10 @@ class exampleProducer(Module):
             return False
         if nTaus == 0 and nElectrons + nMuons > 2: #ee, emu, mumu
             return False
-
-        ## check which triggers are fired ##
-        muonTriggered = False
-        electronTriggered = False
-        if self.runningEra == 0 :
-            if HLT.IsoMu24 or HLT.Mu50 :
-                muonTriggered = True
-            if HLT.Ele27_WPTight_Gsf :
-                electronTriggered = True
-        elif self.runningEra == 1 :
-            if HLT.IsoMu27 or HLT.Mu50 :
-                muonTriggered = True
-            if HLT.Ele32_WPTight_Gsf_L1DoubleEG and HLT.Ele35_WPTight_GsF_L1EGMT : #seems to be recommended to use L1 seed of HLT_Ele35 as well
-                electronTriggered = True
-        elif self.runningEra == 2 :
-            if HLT.IsoMu24 or HLT.Mu50 :
-                muonTriggered = True
-            if HLT.Ele32_WPTight_Gsf :
-                electronTriggered = True
-        if (verbose > 1 and self.seen % 100 == 0) or (verbose > 2 and self.seen % 10 == 0):
-            print "muonTriggered =",muonTriggered,"electronTriggered =",electronTriggered
-        #require a trigger
-        if not muonTriggered and not electronTriggered :
+        #no trigger-able leptons
+        if nElectrons == 0 and not muonTriggered:
+            return False
+        if nMuons == 0 and not electronTriggered:
             return False
 
         ## check if the event passes each selection ##
@@ -267,12 +270,12 @@ class exampleProducer(Module):
             etau = etau and (math.fabs(lep1.eta + lep1.deltaEtaSC) < 1.442 or math.fabs(lep1.eta + lep1.deltaEtaSC) > 1.566) 
             etau = etau and lep1.pt > minelept and lep2.pt > mintaupt
             if useDeepNNTauIDs:
-                etau = etau and lep2.idDeepTau2017v2p1VSe >= tauAntiEle
+                etau = etau and lep2.idDeepTau2017v2p1VSe >= tauAntiEle_etau
                 etau = etau and lep2.idDeepTau2017v2p1VSmu >= tauAntiMu
                 etau = etau and lep2.idDeepTau2017v2p1VSjet >= tauAntiJet
                 etau = etau and lep2.idDecayModeNewDMs
             else:
-                etau = etau and lep2.idAntiEle >= tauAntiEle
+                etau = etau and lep2.idAntiEle >= tauAntiEle_etau
                 etau = etau and lep2.idAntiMu >= tauAntiMu
                 etau = etau and lep2.idMVAnewDM2017v2 >= tauIso
                 etau = etau and lep2.idDecayMode
@@ -299,7 +302,7 @@ class exampleProducer(Module):
             emu = emu and (math.fabs(lep1.eta + lep1.deltaEtaSC) < 1.442 or math.fabs(lep1.eta + lep1.deltaEtaSC) > 1.566)
             emu = emu and lep1.pt > mineleptlow and lep2.pt > minmuptlow
         # mumu
-        elif nMuons == 2 and not (mutau or etau):
+        elif nMuons == 2 and nElectrons == 0 and not (mutau or etau):
             if doCountingSelection :
                 leptonOneIndex = muon_dict[0]
                 leptonTwoIndex = muon_dict[1]
@@ -317,7 +320,7 @@ class exampleProducer(Module):
             mumu = mumu and (lep1.pt > minmupt or lep2.pt > minmupt)
             mumu = mumu and lep1.pt > minmuptlow and lep2.pt > minmuptlow
         # ee
-        elif nElectrons == 2 and not (mutau or etau):
+        elif nElectrons == 2 and nMuons == 0 and not (mutau or etau):
             if doCountingSelection :
                 leptonOneIndex = elec_dict[0]
                 leptonTwoIndex = elec_dict[1]
@@ -352,15 +355,27 @@ class exampleProducer(Module):
             return False
 
         ## check proper trigger is fired ##
+        muonLowTrig = False
+        if self.runningEra == 0 or self.runningEra == 2 :
+            muonLowTrig = HLT.IsoMu24
+        elif self.runningEra == 1 :
+            muonLowTrig = HLT.IsoMu27
+
         if mumu :
             if not muonTriggered:
                 return False
+            if not muonLowTrig : #only passed high pt trigger
+                if not (lep1.pt > 50 or lep2.pt > 50.) :
+                    return False                
         elif ee :
             if not electronTriggered :
                 return False
         elif mutau :
             if not muonTriggered:
                 return False
+            if not muonLowTrig : #only passed high pt trigger
+                if not (lep1.pt > 50) :
+                    return False                
         elif etau :
             if not electronTriggered :
                 return False
@@ -368,6 +383,9 @@ class exampleProducer(Module):
             #check triggers with threshold on triggering lepton
             if not ((muonTriggered and lep2.pt > minmupt) or (electronTriggered and lep1.pt > minelept)) :
                 return False
+            if not muonLowTrig and not (electronTriggered and lep1.pt > minelept)  : #only passed high pt muon trigger
+                if not (lep2.pt > 50) :
+                    return False                
 
         else :
             print "ERROR! No selection found!"
