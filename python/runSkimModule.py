@@ -16,6 +16,7 @@ class exampleProducer(Module):
         self.emu = 0
         self.mumu = 0
         self.ee = 0
+        self.isDY = False
         pass
     def beginJob(self):
         pass
@@ -29,10 +30,45 @@ class exampleProducer(Module):
         self.out.branch("leptonOneIndex" ,  "I"); # lepton one index
         self.out.branch("leptonTwoFlavor",  "I"); # lepton two flavor
         self.out.branch("leptonTwoIndex" ,  "I"); # lepton two index
+        self.out.branch("zPt"            ,  "F"); # Gen-level Z pT
+        self.out.branch("zMass"          ,  "F"); # Gen-level Z mass
+        self.out.branch("zLepOne"        ,  "I"); # Gen-level Z lepton daughter 1
+        self.out.branch("zLepTwo"        ,  "I"); # Gen-level Z lepton daughter 1
+        name = inputFile.GetName()
+        # data samples from Z to ll (include LFV just for Z info)
+        self.isDY = ("DYJetsToLL" in name) or ("ZMuTau" in name) or ("ZETau" in name) or ("ZEMu" in name)
         
     def endFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         pass
+    # get generator info for Z boson
+    def genZInfo(self, event):
+        genParts = Collection(event, "GenPart")
+        ngenpart = len(genParts)
+        print "In an event, z info"
+        zpt = -1.
+        zmass = -1.
+        leponeid = 0
+        leptwoid = 0
+        for index in range(ngenpart):
+            if genParts[index].pdgId == 23: #z boson
+                if (genParts[index].statusFlags & (1<<13)): #check if isLastCopy()
+                    zpt = genParts[index].pt
+                    zmass = genParts[index].mass
+            elif ((abs(genParts[index].pdgId) == 11 or abs(genParts[index].pdgId) == 13 or abs(genParts[index].pdgId) == 15)
+                  and genParts[index].genPartIdxMother >= 0 and genParts[genParts[index].genPartIdxMother].pdgId == 23):
+                if leponeid == 0:
+                    leponeid = genParts[index].pdgId
+                else:
+                    leptwoid = genParts[index].pdgId
+        self.out.fillBranch("zPt", zpt)
+        self.out.fillBranch("zMass", zmass)
+        self.out.fillBranch("zLepOne", leponeid)
+        self.out.fillBranch("zLepTwo", leptwoid)
+                
     def analyze(self, event):
+        ############################
+        #     Begin event loop     #
+        ############################
 
         verbose = 1
         self.seen = self.seen + 1
@@ -45,18 +81,25 @@ class exampleProducer(Module):
         jets      = Collection(event, "Jet")
         PuppiMET  = Object(event, "PuppiMET")
 
-        ## trigger parameter ##
+        ############################
+        #    Trigger parameters    #
+        ############################
+
         minmupt     = 25. # muon trigger
         minelept    = 33. # electron trigger
         if self.runningEra == 0 :
-            minelept = 28. #lower pT trigger in 2016
+            minelept = 28. #lower pT electron trigger in 2016
         elif self.runningEra == 1 :
-            minmupt = 28. #higher pT trigger in 2017
+            minmupt = 28. #higher pT muon trigger in 2017
 
         ## Non-trigger lepton parameters ##
         minmuptlow  = 5.
         mineleptlow = 10.
         mintaupt = 20.
+
+        ############################
+        #       Object IDs         #
+        ############################
         
         ## jet parameters ##
         jetIdflag   = 1
@@ -89,30 +132,41 @@ class exampleProducer(Module):
         tauAntiJet = 50 # (bitmask) deepNN: 1 = VVVLoose 2 = VVLoose 4 = VLoose 8 = Loose 16 = Medium 32 = Tight 64 = VTight 128 = VVTight
         tauIso     = 7 
         tauDeltaR  = 0.3
+
+        ############################
+        #     Veto object IDs      #
+        ############################
         
         ## counting veto parameters ##
         doCountingSelection = True # else just use length of the array
         # muons
-        minmupt_count = 0. # 3 GeV/c threshold in nanoAOD
+        minmupt_count = 5. # 3 GeV/c threshold in nanoAOD
         muonIso_count = muonIsoVLoose
         muonId_count = 1 # 1 = loose, 2 = medium, 3 = tight
         # electrons
-        minelept_count = 0. # 5 GeV/c threshold in nanoAOD
-        eleId_count = 1 #0 = none 1 = WPL, 2 = WP80, 3 = WP90
+        minelept_count = 10. # 5 GeV/c threshold in nanoAOD
+        eleId_count = 1 #0 = none 1 = WPL, 2 = WP80, 3 = WP90        
         # taus
         mintaupt_count = 20.
         tauAntiEle_count = 1
-        tauAntiMu_count = 1
-        tauAntiJet_count = 4
+        tauAntiMu_count = 10
+        tauAntiJet_count = 50
         tauIso_count = 0
         tauIdDecay_count = True
         tauDeltaR_count = 0.3 #distance from selected electrons/muons
         
 
+        ############################
+        #     Begin selections     #
+        ############################
+        
         ### initial filtering ###
         if maxMET > 0 and PuppiMET.pt > maxMET : #cut high MET events
             return False
 
+        ############################
+        #    Trigger selection     #
+        ############################
         ### check which triggers are fired ###
         muonTriggered = False
         electronTriggered = False
@@ -137,7 +191,10 @@ class exampleProducer(Module):
         if not muonTriggered and not electronTriggered :
             return False
 
-        ################ count objects ####################
+        ############################
+        #      Count leptons       #
+        ############################
+
         nElectrons = 0
         nMuons = 0
         nTaus = 0
@@ -145,9 +202,13 @@ class exampleProducer(Module):
         muon_dict = dict()
         tau_dict = dict()
         if doCountingSelection :
+            ############################
+            #     Count electrons      #
+            ############################
             for index in range(len(electrons)) :
                 if(verbose > 9 and self.seen % 10 == 0):
-                    print "Electron", index, "pt =", electrons[index].pt, "WPL =", electrons[index].mvaFall17V2Iso_WPL, "WP80 =", electrons[index].mvaFall17V2Iso_WP80 
+                    print "Electron", index, "pt =", electrons[index].pt, "WPL =", electrons[index].mvaFall17V2Iso_WPL, \
+                        "WP80 =", electrons[index].mvaFall17V2Iso_WP80 
                 if (electrons[index].pt > minelept_count and
                     ( eleId_count == 0 or
                      (eleId_count == 1 and electrons[index].mvaFall17V2Iso_WPL ) or
@@ -155,9 +216,13 @@ class exampleProducer(Module):
                      (eleId_count == 3 and electrons[index].mvaFall17V2Iso_WP90))) :
                     elec_dict[nElectrons] = index
                     nElectrons = nElectrons + 1
+            ############################
+            #       Count muons        #
+            ############################
             for index in range(len(muons)) :
                 if(verbose > 9 and self.seen % 10 == 0):
-                    print "Muon", index, "pt =", muons[index].pt, "IDL =", muons[index].looseId, "IDM =", muons[index].tightId, "IDT =", muons[index].tightId, "iso = ", muons[index].pfRelIso04_all 
+                    print "Muon", index, "pt =", muons[index].pt, "IDL =", muons[index].looseId, "IDM =", muons[index].tightId, \
+                        "IDT =", muons[index].tightId, "iso = ", muons[index].pfRelIso04_all 
                 if (muons[index].pt > minmupt_count and
                     ((muonId_count == 1 and muons[index].looseId) or
                      (muonId_count == 2 and muons[index].mediumId) or
@@ -165,9 +230,13 @@ class exampleProducer(Module):
                     muons[index].pfRelIso04_all < muonIso_count) :
                     muon_dict[nMuons] = index
                     nMuons = nMuons + 1
+            ############################
+            #       Count taus         #
+            ############################
             for index in range(len(taus)) :
                 if(verbose > 9 and self.seen % 10 == 0):
-                    print "Tau", index, "pt =", taus[index].pt, "AntiMu =", taus[index].idDeepTau2017v2p1VSmu, "AntiEle =", taus[index].idDeepTau2017v2p1VSe, "AntiJet =", taus[index].idDeepTau2017v2p1VSjet
+                    print "Tau", index, "pt =", taus[index].pt, "AntiMu =", taus[index].idDeepTau2017v2p1VSmu, "AntiEle =", \
+                        taus[index].idDeepTau2017v2p1VSe, "AntiJet =", taus[index].idDeepTau2017v2p1VSjet
                 if taus[index].pt > mintaupt_count and abs(taus[index].eta) < 2.3:
                     if ((useDeepNNTauIDs and
                          taus[index].idDeepTau2017v2p1VSe >= tauAntiEle_count and
@@ -186,7 +255,7 @@ class exampleProducer(Module):
                                 if not deltaRCheck:
                                     break
                             for i_muon in range(nMuons):
-                                deltaRCheck = deltaRCheck or taus[index].p4().DeltaR(muons[muon_dict[i_muon]].p4()) > tauDeltaR_count
+                                deltaRCheck = deltaRCheck and taus[index].p4().DeltaR(muons[muon_dict[i_muon]].p4()) > tauDeltaR_count
                                 if not deltaRCheck:
                                     break
                         if deltaRCheck:
@@ -198,12 +267,15 @@ class exampleProducer(Module):
             nTaus      = len(taus)
 
         if (verbose > 1 and self.seen % 100 == 0) or (verbose > 2 and self.seen % 10 == 0):
-            print "seen",self.seen,"ntau (len) =",nTaus,"(", len(taus),") nelectron (len) =",nElectrons,"(", len(electrons),") nmuon (len) =",nMuons,"(",len(muons),") met =",PuppiMET.pt
+            print "seen",self.seen,"ntau (len) =",nTaus,"(", len(taus),") nelectron (len) =",nElectrons,"(", len(electrons),") nmuon (len) =",\
+                nMuons,"(",len(muons),") met =",PuppiMET.pt
 
-        ### filter events that can't pass selections ###
-        if nElectrons == 1 and nMuons == 0 and nTaus != 1: #etau
+        ############################
+        #  Filter by lepton count  #
+        ############################
+        if nElectrons + nMuons < 1: #nothing to trigger on
             return False
-        if nElectrons == 0 and nMuons == 1 and nTaus != 1: #mutau
+        if nElectrons + nMuons == 1 and nTaus != 1: #etau,mutau
             return False
         if nTaus == 0 and nElectrons + nMuons > 2: #ee, emu, mumu
             return False
@@ -213,6 +285,9 @@ class exampleProducer(Module):
         if nMuons == 0 and not electronTriggered:
             return False
 
+        ############################
+        #   Check each selection   #
+        ############################
         ## check if the event passes each selection ##
         mutau = False
         etau  = False
@@ -226,6 +301,9 @@ class exampleProducer(Module):
         leptonTwoIndex  = -1
         leptonTwoFlavor = 0
         
+        ############################
+        #          Mu+Tau          #
+        ############################
         # mutau
         if nMuons == 1 and nTaus == 1:
             if doCountingSelection :
@@ -252,7 +330,9 @@ class exampleProducer(Module):
                 mutau = mutau and lep2.idMVAnewDM2017v2 >= tauIso
                 mutau = mutau and lep2.idDecayMode
             mutau = mutau and lep1.p4().DeltaR(lep2.p4()) > tauDeltaR
-        # etau
+        ############################
+        #          E+Tau           #
+        ############################
         if nElectrons == 1 and nTaus == 1:
             if doCountingSelection :
                 leptonOneIndex = elec_dict[0]
@@ -284,7 +364,9 @@ class exampleProducer(Module):
         if mutau and etau:
             mutau = False
             etau  = False
-        # emu
+        ############################
+        #           E+Mu           #
+        ############################
         if nElectrons == 1 and nMuons == 1:
             if doCountingSelection :
                 leptonOneIndex = elec_dict[0]
@@ -301,7 +383,9 @@ class exampleProducer(Module):
             emu =  lep2.tightId and lep2.pfRelIso04_all < muonIso and lep1.mvaFall17V2Iso_WP80
             emu = emu and (math.fabs(lep1.eta + lep1.deltaEtaSC) < 1.442 or math.fabs(lep1.eta + lep1.deltaEtaSC) > 1.566)
             emu = emu and lep1.pt > mineleptlow and lep2.pt > minmuptlow
-        # mumu
+        ############################
+        #          Mu+Mu           #
+        ############################
         elif nMuons == 2 and nElectrons == 0 and not (mutau or etau):
             if doCountingSelection :
                 leptonOneIndex = muon_dict[0]
@@ -319,7 +403,9 @@ class exampleProducer(Module):
             mumu = mumu and lep1.pfRelIso04_all < muonIso and lep2.pfRelIso04_all < muonIso
             mumu = mumu and (lep1.pt > minmupt or lep2.pt > minmupt)
             mumu = mumu and lep1.pt > minmuptlow and lep2.pt > minmuptlow
-        # ee
+        ############################
+        #           E+E            #
+        ############################
         elif nElectrons == 2 and nMuons == 0 and not (mutau or etau):
             if doCountingSelection :
                 leptonOneIndex = elec_dict[0]
@@ -343,17 +429,27 @@ class exampleProducer(Module):
         if emu and (mutau or etau):
             mutau = False
             etau = False
-            
+        
         # must pass a selection
         if not (mutau or etau or emu or mumu or ee):
             return False
 
+        ############################
+        #    Further filtering     #
+        ############################
+
+        ############################
+        #     Mass filtering       #
+        ############################
         ## Filter by mass range ##
         # lep1 and lep2 should still be properly set from selection checks
         lep_mass = (lep1.p4() + lep2.p4()).M()
         if lep_mass < minLepM or lep_mass > maxLepM:
             return False
 
+        ############################
+        #    Trigger filtering     #
+        ############################
         ## check proper trigger is fired ##
         muonLowTrig = False
         if self.runningEra == 0 or self.runningEra == 2 :
@@ -391,6 +487,10 @@ class exampleProducer(Module):
             print "ERROR! No selection found!"
             return False
 
+        ############################
+        #     B-Jet filtering      #
+        ############################
+
         ## cut events with high pT jets (reduce top backgrounds) ##
         if maxJetPt > 0.:
             jetptmax  = -1.
@@ -411,11 +511,19 @@ class exampleProducer(Module):
         if (verbose > 1 and self.seen % 100 == 0) or (verbose > 2 and self.seen % 10 == 0):
             print "passing event."
 
+        ############################
+        #      Accept event        #
+        ############################
+
+        # Fill outgoing branches
         self.out.fillBranch("M_ll", lep_mass)
         self.out.fillBranch("leptonOneFlavor", leptonOneFlavor)
         self.out.fillBranch("leptonOneIndex" , leptonOneIndex)
         self.out.fillBranch("leptonTwoFlavor", leptonTwoFlavor)
         self.out.fillBranch("leptonTwoIndex" , leptonTwoIndex)
+        # if DY event, fill extra info
+        if(self.isDY):
+            self.genZInfo(event)
 
         # increment selection counts
         if emu:

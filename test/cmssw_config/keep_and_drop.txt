@@ -2,6 +2,8 @@
 drop * # start with all
 keep M_ll
 keep lepton*
+keep z*
+
 keep Electron_pt
 keep Electron_eta
 keep Electron_phi
@@ -61,6 +63,8 @@ keep Tau_idDeepTau2017v2p1VS*
 keep Tau_decayMode
 keep Tau_charge
 keep Tau_genPartFlav
+
+keep GenVisTau_*
 
 keep PuppiMET*
 keep MET_pt
