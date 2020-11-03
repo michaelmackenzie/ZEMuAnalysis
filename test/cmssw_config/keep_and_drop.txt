@@ -1,8 +1,12 @@
 # this is a comment
 drop * # start with all
+
+#Branches added to the tree
 keep M_ll
 keep lepton*
 keep z*
+
+#Existing branches to keep
 
 keep Electron_pt
 keep Electron_eta
@@ -13,6 +17,7 @@ keep Electron_dxy*
 keep Electron_dz*
 keep Electron_charge
 keep Electron_mvaFall17V2Iso_WP*
+keep Electron_genPartFlav
 
 keep Muon_pt
 keep Muon_eta
@@ -27,6 +32,7 @@ keep Muon_looseId
 keep Muon_mediumId
 keep Muon_tightId
 keep Muon_triggerIdLoose
+keep Muon_genPartFlav
 
 keep FsrPhoton_*
 

@@ -1,7 +1,7 @@
 #directories to ignore by default
 test/rootfiles
 test/crab_projects
-
+scripts/batch
 #log/temporary files
 *.log
 *.tmp

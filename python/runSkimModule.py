@@ -17,6 +17,7 @@ class exampleProducer(Module):
         self.mumu = 0
         self.ee = 0
         self.isDY = False
+        self.verbose = 1
         pass
     def beginJob(self):
         pass
@@ -44,7 +45,6 @@ class exampleProducer(Module):
     def genZInfo(self, event):
         genParts = Collection(event, "GenPart")
         ngenpart = len(genParts)
-        print "In an event, z info"
         zpt = -1.
         zmass = -1.
         leponeid = 0
@@ -54,12 +54,46 @@ class exampleProducer(Module):
                 if (genParts[index].statusFlags & (1<<13)): #check if isLastCopy()
                     zpt = genParts[index].pt
                     zmass = genParts[index].mass
-            elif ((abs(genParts[index].pdgId) == 11 or abs(genParts[index].pdgId) == 13 or abs(genParts[index].pdgId) == 15)
-                  and genParts[index].genPartIdxMother >= 0 and genParts[genParts[index].genPartIdxMother].pdgId == 23):
+                else : #save values in case no Z passes the last copy check, if not filled already
+                    if zpt < 0. :
+                        zpt = genParts[index].pt
+                    if zmass < 0. :
+                        zmass = genParts[index].mass
+            elif ((abs(genParts[index].pdgId) == 11 or abs(genParts[index].pdgId) == 13 or abs(genParts[index].pdgId) == 15) #charged lepton
+                  and genParts[index].genPartIdxMother >= 0 and genParts[genParts[index].genPartIdxMother].pdgId == 23): #parent is z-boson
                 if leponeid == 0:
                     leponeid = genParts[index].pdgId
                 else:
                     leptwoid = genParts[index].pdgId
+        if zpt < 0. or zmass < 0. or leponeid == 0 or leptwoid == 0:
+            print "Warning! Not all Z information was found in event", self.seen
+            print "Found Z pT =", zpt, "and Mass =", zmass, ". Lep One Pdg ID =", leponeid, "and Lep Two Pdg ID =", leptwoid
+            print "Attempting to replace the Z by looking for two leptons with parent = 0..."
+            if self.verbose > 1:
+                print "Printing the gen particle information:"
+            leponeindex = -1
+            leptwoindex = -1
+            for index in range(ngenpart):
+                if self.verbose > 1:
+                    print "Index", index, ": Pdg =", genParts[index].pdgId, " parent =", genParts[index].genPartIdxMother, \
+                        "mass =", genParts[index].mass, "pt =", genParts[index].pt
+                if((abs(genParts[index].pdgId) == 11 or abs(genParts[index].pdgId) == 13 or abs(genParts[index].pdgId) == 15) #charged lepton
+                   and genParts[index].genPartIdxMother == 0) : #Mother is original quark
+                    if leponeindex < 0:
+                        leponeindex = index
+                    elif leptwoindex < 0:
+                        leptwoindex = index
+            if leponeindex < 0 or leptwoindex < 0:
+                print "Failed to find leptons coming from particle 0!"
+            else :
+                lv1 = ROOT.TLorentzVector()
+                lv1.SetPtEtaPhiM(genParts[leponeindex].pt, genParts[leponeindex].eta, genParts[leponeindex].phi, genParts[leponeindex].mass)
+                lv2 = ROOT.TLorentzVector()
+                lv2.SetPtEtaPhiM(genParts[leptwoindex].pt, genParts[leptwoindex].eta, genParts[leptwoindex].phi, genParts[leptwoindex].mass)
+                zpt = (lv1+lv2).Pt()
+                zmass = (lv1+lv2).M()
+                leponeid = genParts[leponeindex].pdgId
+                leptwoid = genParts[leptwoindex].pdgId
         self.out.fillBranch("zPt", zpt)
         self.out.fillBranch("zMass", zmass)
         self.out.fillBranch("zLepOne", leponeid)
@@ -70,7 +104,6 @@ class exampleProducer(Module):
         #     Begin event loop     #
         ############################
 
-        verbose = 1
         self.seen = self.seen + 1
         
         """process event, return True (go to next module) or False (fail, go to next event)"""
@@ -117,7 +150,7 @@ class exampleProducer(Module):
         ## selection parameters ##
         maxMET      = -1. # < 0 to apply no cut
         maxJetPt    = -1. # < 0 to apply no cut
-        minLepM     = 45. # generator only went down to 50 GeV/c^2
+        minLepM     = 50. # generator only went down to 50 GeV/c^2
         maxLepM     = 170.
         cutBJets    = False
 
@@ -178,14 +211,14 @@ class exampleProducer(Module):
         elif self.runningEra == 1 :
             if HLT.IsoMu27 or HLT.Mu50 :
                 muonTriggered = True
-            if HLT.Ele32_WPTight_Gsf_L1DoubleEG and HLT.Ele35_WPTight_GsF_L1EGMT : #seems to be recommended to use L1 seed of HLT_Ele35 as well
+            if HLT.Ele32_WPTight_Gsf_L1DoubleEG: # and HLT.Ele35_WPTight_GsF_L1EGMT : FIXME #seems to be recommended to use L1 seed of HLT_Ele35 as well
                 electronTriggered = True
         elif self.runningEra == 2 :
             if HLT.IsoMu24 or HLT.Mu50 :
                 muonTriggered = True
             if HLT.Ele32_WPTight_Gsf :
                 electronTriggered = True
-        if (verbose > 1 and self.seen % 100 == 0) or (verbose > 2 and self.seen % 10 == 0):
+        if (self.verbose > 1 and self.seen % 100 == 0) or (self.verbose > 2 and self.seen % 10 == 0):
             print "muonTriggered =",muonTriggered,"electronTriggered =",electronTriggered
         #require a trigger
         if not muonTriggered and not electronTriggered :
@@ -206,7 +239,7 @@ class exampleProducer(Module):
             #     Count electrons      #
             ############################
             for index in range(len(electrons)) :
-                if(verbose > 9 and self.seen % 10 == 0):
+                if(self.verbose > 9 and self.seen % 10 == 0):
                     print "Electron", index, "pt =", electrons[index].pt, "WPL =", electrons[index].mvaFall17V2Iso_WPL, \
                         "WP80 =", electrons[index].mvaFall17V2Iso_WP80 
                 if (electrons[index].pt > minelept_count and
@@ -220,7 +253,7 @@ class exampleProducer(Module):
             #       Count muons        #
             ############################
             for index in range(len(muons)) :
-                if(verbose > 9 and self.seen % 10 == 0):
+                if(self.verbose > 9 and self.seen % 10 == 0):
                     print "Muon", index, "pt =", muons[index].pt, "IDL =", muons[index].looseId, "IDM =", muons[index].tightId, \
                         "IDT =", muons[index].tightId, "iso = ", muons[index].pfRelIso04_all 
                 if (muons[index].pt > minmupt_count and
@@ -234,7 +267,7 @@ class exampleProducer(Module):
             #       Count taus         #
             ############################
             for index in range(len(taus)) :
-                if(verbose > 9 and self.seen % 10 == 0):
+                if(self.verbose > 9 and self.seen % 10 == 0):
                     print "Tau", index, "pt =", taus[index].pt, "AntiMu =", taus[index].idDeepTau2017v2p1VSmu, "AntiEle =", \
                         taus[index].idDeepTau2017v2p1VSe, "AntiJet =", taus[index].idDeepTau2017v2p1VSjet
                 if taus[index].pt > mintaupt_count and abs(taus[index].eta) < 2.3:
@@ -266,7 +299,7 @@ class exampleProducer(Module):
             nMuons     = len(muons)
             nTaus      = len(taus)
 
-        if (verbose > 1 and self.seen % 100 == 0) or (verbose > 2 and self.seen % 10 == 0):
+        if (self.verbose > 1 and self.seen % 100 == 0) or (self.verbose > 2 and self.seen % 10 == 0):
             print "seen",self.seen,"ntau (len) =",nTaus,"(", len(taus),") nelectron (len) =",nElectrons,"(", len(electrons),") nmuon (len) =",\
                 nMuons,"(",len(muons),") met =",PuppiMET.pt
 
@@ -508,7 +541,7 @@ class exampleProducer(Module):
                 if cutBJets and pt_of_jet > 25. and jets[jetcount].btagDeepB > 0.4184 :   #medium
                     return False
 
-        if (verbose > 1 and self.seen % 100 == 0) or (verbose > 2 and self.seen % 10 == 0):
+        if (self.verbose > 1 and self.seen % 100 == 0) or (self.verbose > 2 and self.seen % 10 == 0):
             print "passing event."
 
         ############################
