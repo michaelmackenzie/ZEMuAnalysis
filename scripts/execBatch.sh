@@ -97,7 +97,7 @@ ls outDir/
 
 ### Copy output and cleanup ###
 FILE=output_${SUFFIX}_${COUNT}.root
-hadd ${FILE} outDir/*root
+scripts/haddnano.py ${FILE} outDir/*root
 
 xrdcp -f ${FILE} ${OUTDIR}/${FILE} 2>&1
 XRDEXIT=$?

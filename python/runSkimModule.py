@@ -8,21 +8,32 @@ from PhysicsTools.NanoAODTools.postprocessing.framework.datamodel import Object
 from PhysicsTools.NanoAODTools.postprocessing.framework.eventloop import Module
 
 class exampleProducer(Module):
-    def __init__(self,runningEra):
+    def __init__(self,runningEra, maxEvents, startEvent):
         self.runningEra = runningEra
+        self.maxEvents = maxEvents #for quick local testing
+        self.startEvent = startEvent
         self.seen = 0
         self.mutau = 0
         self.etau = 0
         self.emu = 0
         self.mumu = 0
         self.ee = 0
+        self.failTrigMap = 0
         self.isDY = False
-        self.verbose = 1
+        if self.maxEvents == 1:
+            self.verbose = 20
+        elif self.maxEvents > 0 and self.maxEvents < 10:
+            self.verbose = 10
+        elif self.maxEvents > 0:
+            self.verbose = 2
+        else:
+            self.verbose = 1
         pass
     def beginJob(self):
         pass
     def endJob(self):
-        print "Saw", self.emu, "e+mu,", self.etau,"e+tau,", self.mutau, "mu+tau,", self.mumu, "mu+mu, and", self.ee, "ee"
+        print "Saw", self.emu, "e+mu,", self.etau,"e+tau,", self.mutau, "mu+tau,", self.mumu, "mu+mu, and", self.ee, "ee","from",(self.seen-self.startEvent),"events processed"
+        print "Found", self.failTrigMap, "events that failed trigger matching requirements"
         pass
     def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         self.out = wrappedOutputTree
@@ -35,6 +46,9 @@ class exampleProducer(Module):
         self.out.branch("zMass"          ,  "F"); # Gen-level Z mass
         self.out.branch("zLepOne"        ,  "I"); # Gen-level Z lepton daughter 1
         self.out.branch("zLepTwo"        ,  "I"); # Gen-level Z lepton daughter 1
+        self.out.branch("muonLowTrigger" ,  "O"); # fired muon low trigger
+        self.out.branch("muonHighTrigger",  "O"); # fired muon high trigger
+        self.out.branch("electronTrigger",  "O"); # fired electron trigger
         name = inputFile.GetName()
         # data samples from Z to ll (include LFV just for Z info)
         self.isDY = ("DYJetsToLL" in name) or ("ZMuTau" in name) or ("ZETau" in name) or ("ZEMu" in name)
@@ -59,8 +73,18 @@ class exampleProducer(Module):
                         zpt = genParts[index].pt
                     if zmass < 0. :
                         zmass = genParts[index].mass
+            elif genParts[index].pdgId == 25: #h boson
+                if (genParts[index].statusFlags & (1<<13)): #check if isLastCopy()
+                    zpt = genParts[index].pt
+                    zmass = genParts[index].mass
+                else : #save values in case no H passes the last copy check, if not filled already
+                    if zpt < 0. :
+                        zpt = genParts[index].pt
+                    if zmass < 0. :
+                        zmass = genParts[index].mass
             elif ((abs(genParts[index].pdgId) == 11 or abs(genParts[index].pdgId) == 13 or abs(genParts[index].pdgId) == 15) #charged lepton
-                  and genParts[index].genPartIdxMother >= 0 and genParts[genParts[index].genPartIdxMother].pdgId == 23): #parent is z-boson
+                  and genParts[index].genPartIdxMother >= 0 and (genParts[genParts[index].genPartIdxMother].pdgId == 23 #parent is z-boson
+                                                                 or genParts[genParts[index].genPartIdxMother].pdgId == 25)): #parent is h-boson
                 if leponeid == 0:
                     leponeid = genParts[index].pdgId
                 else:
@@ -98,14 +122,79 @@ class exampleProducer(Module):
         self.out.fillBranch("zMass", zmass)
         self.out.fillBranch("zLepOne", leponeid)
         self.out.fillBranch("zLepTwo", leptwoid)
-                
+
+    def check_trig(self, trigObjs, lepton, isMuon):
+        if isMuon :
+            bit_1 = 1#3 #2 #Iso 1 muon
+            bit_2 = 10 # bit_1 # 1024 #Mu50
+        else :
+            if self.runningEra == 1:
+                bit_1 = 10 #1024 #32_L1DoubleEG_AND_L1SingleEGOr
+                bit_2 = bit_1 #no second trigger
+            else :
+                bit_1 = 1 #2 # WPTight 1 ele
+                bit_2 = bit_1 # no second trigger
+        deltaR_match = 0.2
+        deltaPt_match = 10 #fractional match, > ~5 --> no pT matching
+        result = 0
+        passedBit1 = False
+        passedBit2 = False
+        pdg = 13
+        name = "a Muon"
+        if not isMuon:
+            pdg = 11
+            name = "an Electron"
+        if self.verbose > 9:
+            print " Event", self.seen, ": Printing trigger object info for matching to a lepton with bits", (1<<bit_1), "and", (1<<bit_2)
+            print " lepton pt, eta, phi =", lepton.pt, lepton.eta, lepton.phi
+        for i_trig in range(len(trigObjs)):
+            trigObj = trigObjs[i_trig]
+            if abs(trigObj.id) != pdg:
+                continue
+            passBit1 = trigObj.filterBits & (1<<bit_1) != 0
+            passBit2 = trigObj.filterBits & (1<<bit_2) != 0
+            if self.verbose > 9:
+                print "  Trigger object", i_trig, "for",name,"has filterBits", trigObj.filterBits, "pt, eta, phi =", trigObj.pt, trigObj.eta, trigObj.phi
+            if passBit1 or passBit2:
+                if self.verbose > 9:
+                    print "   Trigger object", i_trig,"passed bit check, trig pt =", trigObj.pt, "lepton pt =", lepton.pt
+                if abs(lepton.pt - trigObj.pt) < deltaPt_match*lepton.pt:
+                    deltaEta = abs(lepton.eta - trigObj.eta)
+                    deltaPhi = abs(lepton.phi - trigObj.phi)
+                    if deltaPhi > math.pi:
+                        deltaPhi = abs(2*math.pi - deltaPhi)
+                    if self.verbose > 9:
+                        print "    Trigger object passed pt check, trig eta, phi =", trigObj.eta, "," , trigObj.phi,\
+                            "lepton eta, phi =", lepton.eta, ",", lepton.phi
+                    deltaR = math.sqrt(deltaEta*deltaEta + deltaPhi*deltaPhi)
+                    if deltaR < deltaR_match:
+                        if self.verbose > 2:
+                            print " Event",self.seen, "Trigger object",i_trig,"passed matching, pass bit1 =", passBit1, "pass bit2 =", passBit2
+                        # if not isMuon:
+                        result = 1
+                        return result
+                        # passedBit1 = passedBit1 or passBit1
+                        # passedBit2 = passedBit2 or passBit2
+        return 0 #passedBit1 + 2*passedBit2
+                        
+    # Main processing loop
     def analyze(self, event):
         ############################
         #     Begin event loop     #
         ############################
 
         self.seen = self.seen + 1
-        
+        if(self.startEvent > self.seen): #continue until reach desired starting point
+            return False
+        if(self.startEvent > 1 and self.startEvent == self.seen):
+            print "***Found starting event", self.startEvent
+        if(self.maxEvents > 0 and self.seen-self.startEvent >= self.maxEvents) : #exit if processed maximum events
+            print "Processed the maximum number of events,", self.maxEvents
+            self.endJob()
+            exit()        
+        if self.verbose > 9:
+            print "***Processing event", self.seen
+            
         """process event, return True (go to next module) or False (fail, go to next event)"""
         HLT       = Object(event, "HLT")
         electrons = Collection(event, "Electron")
@@ -113,7 +202,8 @@ class exampleProducer(Module):
         taus      = Collection(event, "Tau")
         jets      = Collection(event, "Jet")
         PuppiMET  = Object(event, "PuppiMET")
-
+        trigObjs  = Collection(event, "TrigObj")
+        
         ############################
         #    Trigger parameters    #
         ############################
@@ -202,28 +292,29 @@ class exampleProducer(Module):
         ############################
         ### check which triggers are fired ###
         muonTriggered = False
-        electronTriggered = False
+        muonLowTriggered = False
+        muonHighTriggered = False
+        electronTriggered = False        
         if self.runningEra == 0 :
-            if HLT.IsoMu24 or HLT.Mu50 :
-                muonTriggered = True
-            if HLT.Ele27_WPTight_Gsf :
-                electronTriggered = True
+            muonLowTriggered = HLT.IsoMu24
+            muonHighTriggered = HLT.Mu50
+            electronTriggered = HLT.Ele27_WPTight_Gsf
         elif self.runningEra == 1 :
-            if HLT.IsoMu27 or HLT.Mu50 :
-                muonTriggered = True
-            if HLT.Ele32_WPTight_Gsf_L1DoubleEG: # and HLT.Ele35_WPTight_GsF_L1EGMT : FIXME #seems to be recommended to use L1 seed of HLT_Ele35 as well
-                electronTriggered = True
+            muonLowTriggered = HLT.IsoMu27
+            muonHighTriggered = HLT.Mu50
+            electronTriggered = HLT.Ele32_WPTight_Gsf_L1DoubleEG
         elif self.runningEra == 2 :
-            if HLT.IsoMu24 or HLT.Mu50 :
-                muonTriggered = True
-            if HLT.Ele32_WPTight_Gsf :
-                electronTriggered = True
-        if (self.verbose > 1 and self.seen % 100 == 0) or (self.verbose > 2 and self.seen % 10 == 0):
-            print "muonTriggered =",muonTriggered,"electronTriggered =",electronTriggered
+            muonLowTriggered = HLT.IsoMu24
+            muonHighTriggered = HLT.Mu50
+            electronTriggered = HLT.Ele32_WPTight_Gsf
+        muonTriggered = muonLowTriggered or muonHighTriggered
+        if (self.verbose > 1 and self.seen % 100 == 0) or (self.verbose > 2 and self.seen % 10 == 0) or self.verbose > 9:
+            print "Event", self.seen, "muonTriggered =",muonTriggered,"electronTriggered =",electronTriggered
         #require a trigger
         if not muonTriggered and not electronTriggered :
             return False
 
+        
         ############################
         #      Count leptons       #
         ############################
@@ -238,9 +329,11 @@ class exampleProducer(Module):
             ############################
             #     Count electrons      #
             ############################
+            if(self.verbose > 9 and self.seen % 10 == 0) or self.verbose > 10:
+                print "Event", self.seen, ": printing electron info..."
             for index in range(len(electrons)) :
-                if(self.verbose > 9 and self.seen % 10 == 0):
-                    print "Electron", index, "pt =", electrons[index].pt, "WPL =", electrons[index].mvaFall17V2Iso_WPL, \
+                if(self.verbose > 9 and self.seen % 10 == 0) or self.verbose > 10:
+                    print " Electron", index, "pt =", electrons[index].pt, "WPL =", electrons[index].mvaFall17V2Iso_WPL, \
                         "WP80 =", electrons[index].mvaFall17V2Iso_WP80 
                 if (electrons[index].pt > minelept_count and
                     ( eleId_count == 0 or
@@ -252,9 +345,11 @@ class exampleProducer(Module):
             ############################
             #       Count muons        #
             ############################
+            if(self.verbose > 9 and self.seen % 10 == 0) or self.verbose > 10:
+                print "Event", self.seen, ": printing muon info..."
             for index in range(len(muons)) :
-                if(self.verbose > 9 and self.seen % 10 == 0):
-                    print "Muon", index, "pt =", muons[index].pt, "IDL =", muons[index].looseId, "IDM =", muons[index].tightId, \
+                if(self.verbose > 9 and self.seen % 10 == 0) or self.verbose > 10:
+                    print " Muon", index, "pt =", muons[index].pt, "IDL =", muons[index].looseId, "IDM =", muons[index].tightId, \
                         "IDT =", muons[index].tightId, "iso = ", muons[index].pfRelIso04_all 
                 if (muons[index].pt > minmupt_count and
                     ((muonId_count == 1 and muons[index].looseId) or
@@ -266,9 +361,11 @@ class exampleProducer(Module):
             ############################
             #       Count taus         #
             ############################
+            if(self.verbose > 9 and self.seen % 10 == 0) or self.verbose > 10:
+                print "Event", self.seen, ": printing tau info..."
             for index in range(len(taus)) :
-                if(self.verbose > 9 and self.seen % 10 == 0):
-                    print "Tau", index, "pt =", taus[index].pt, "AntiMu =", taus[index].idDeepTau2017v2p1VSmu, "AntiEle =", \
+                if(self.verbose > 9 and self.seen % 10 == 0) or self.verbose > 10:
+                    print " Tau", index, "pt =", taus[index].pt, "AntiMu =", taus[index].idDeepTau2017v2p1VSmu, "AntiEle =", \
                         taus[index].idDeepTau2017v2p1VSe, "AntiJet =", taus[index].idDeepTau2017v2p1VSjet
                 if taus[index].pt > mintaupt_count and abs(taus[index].eta) < 2.3:
                     if ((useDeepNNTauIDs and
@@ -299,10 +396,58 @@ class exampleProducer(Module):
             nMuons     = len(muons)
             nTaus      = len(taus)
 
-        if (self.verbose > 1 and self.seen % 100 == 0) or (self.verbose > 2 and self.seen % 10 == 0):
-            print "seen",self.seen,"ntau (len) =",nTaus,"(", len(taus),") nelectron (len) =",nElectrons,"(", len(electrons),") nmuon (len) =",\
+        if (self.verbose > 1 and self.seen % 100 == 0) or (self.verbose > 2 and self.seen % 10 == 0) or self.verbose > 9:
+            print "Event",self.seen,"lepton counts: ntau (N before IDs) =",nTaus,"(", len(taus),") nelectron (N before IDs) =",nElectrons,"(", len(electrons),") nmuon (N before IDs) =",\
                 nMuons,"(",len(muons),") met =",PuppiMET.pt
 
+        if nElectrons + nMuons + nTaus < 2:
+            return False
+        
+        ####################################
+        #  Check leptons against triggers  #
+        ####################################
+        
+        if muonTriggered:
+            muonTrig = False
+            # muonLoTrig = False
+            # muonHiTrig = False
+            #check if a selected muon matches with the muon triggers of interest
+            if (self.verbose > 1 and self.seen % 100 == 0) or (self.verbose > 2 and self.seen % 10 == 0) or self.verbose > 9:
+                print "Event", self.seen, ": printing muon trigger info..."
+            for i_muon in range(nMuons):
+                hasFired = self.check_trig(trigObjs, muons[muon_dict[i_muon]], True)
+                if hasFired > 0: # 1 = low, 2 = high, 3 = both
+                    muonTrig  = True
+                    # muonLoTrig = muonLoTrig or hasFired == 1 or hasFired == 3
+                    # muonHiTrig = muonHiTrig or hasFired > 1
+                    if (self.verbose > 1 and self.seen % 100 == 0) or (self.verbose > 2 and self.seen % 10 == 0) or self.verbose > 9:
+                        print " Muon",i_muon,"has hasFired =",hasFired
+            if self.verbose > 0 and ((muonTriggered and not muonTrig) ): #or (muonLowTriggered and not muonLoTrig) or (muonHighTriggered and not muonHiTrig)) :
+                print "Event", self.seen, "has muon triggered values changed after mapping! There are", nMuons, "muons..."
+                print " Muon triggers before: trig =", muonTriggered, "low =", muonLowTriggered, "high =", muonHighTriggered
+                print " Muon triggers mapped: trig =", muonTrig #, "low =", muonLoTrig, "high =", muonHiTrig
+                print " Electron triggered =", electronTriggered
+            muonTriggered     = muonTrig
+            # muonLowTriggered  = muonLowTriggered  and muonLoTrig
+            # muonHighTriggered = muonHighTriggered and muonHiTrig
+        if electronTriggered:
+            electronTriggered = False
+            if (self.verbose > 1 and self.seen % 100 == 0) or (self.verbose > 2 and self.seen % 10 == 0) or self.verbose > 9:
+                print "Event", self.seen, ": printing electron trigger info..."
+            for i_elec in range(nElectrons):
+                hasFired = self.check_trig(trigObjs, electrons[elec_dict[i_elec]], False)
+                if hasFired > 0:
+                    electronTriggered = True
+                    break
+                if (self.verbose > 1 and self.seen % 100 == 0) or (self.verbose > 2 and self.seen % 10 == 0) or self.verbose > 9:
+                    print " Electron", i_elec, "has hasFired =", hasFired
+            if self.verbose > 0 and not electronTriggered:
+                print "Event", self.seen, "has electron triggered value changed after mapping! There are", nElectrons, "electrons..."
+        
+        if not electronTriggered and not muonTriggered :
+            self.failTrigMap = self.failTrigMap + 1
+            return False
+        
         ############################
         #  Filter by lepton count  #
         ############################
@@ -484,16 +629,11 @@ class exampleProducer(Module):
         #    Trigger filtering     #
         ############################
         ## check proper trigger is fired ##
-        muonLowTrig = False
-        if self.runningEra == 0 or self.runningEra == 2 :
-            muonLowTrig = HLT.IsoMu24
-        elif self.runningEra == 1 :
-            muonLowTrig = HLT.IsoMu27
 
         if mumu :
             if not muonTriggered:
                 return False
-            if not muonLowTrig : #only passed high pt trigger
+            if not muonLowTriggered : #only passed high pt trigger
                 if not (lep1.pt > 50 or lep2.pt > 50.) :
                     return False                
         elif ee :
@@ -502,7 +642,7 @@ class exampleProducer(Module):
         elif mutau :
             if not muonTriggered:
                 return False
-            if not muonLowTrig : #only passed high pt trigger
+            if not muonLowTriggered : #only passed high pt trigger
                 if not (lep1.pt > 50) :
                     return False                
         elif etau :
@@ -512,7 +652,7 @@ class exampleProducer(Module):
             #check triggers with threshold on triggering lepton
             if not ((muonTriggered and lep2.pt > minmupt) or (electronTriggered and lep1.pt > minelept)) :
                 return False
-            if not muonLowTrig and not (electronTriggered and lep1.pt > minelept)  : #only passed high pt muon trigger
+            if not muonLowTriggered and not (electronTriggered and lep1.pt > minelept)  : #only passed high pt muon trigger
                 if not (lep2.pt > 50) :
                     return False                
 
@@ -541,8 +681,8 @@ class exampleProducer(Module):
                 if cutBJets and pt_of_jet > 25. and jets[jetcount].btagDeepB > 0.4184 :   #medium
                     return False
 
-        if (self.verbose > 1 and self.seen % 100 == 0) or (self.verbose > 2 and self.seen % 10 == 0):
-            print "passing event."
+        if (self.verbose > 1 and self.seen % 100 == 0) or (self.verbose > 2 and self.seen % 10 == 0) or self.verbose > 9:
+            print "passing event", self.seen
 
         ############################
         #      Accept event        #
@@ -557,7 +697,11 @@ class exampleProducer(Module):
         # if DY event, fill extra info
         if(self.isDY):
             self.genZInfo(event)
-
+        # Fill trigger info
+        self.out.fillBranch("muonLowTrigger", muonLowTriggered)
+        self.out.fillBranch("muonHighTrigger", muonHighTriggered)
+        self.out.fillBranch("electronTrigger", electronTriggered)
+            
         # increment selection counts
         if emu:
             self.emu = self.emu+1
@@ -572,4 +716,4 @@ class exampleProducer(Module):
         return True
 
 # define modules using the syntax 'name = lambda : constructor' to avoid having them loaded when not needed
-leptonConstr = lambda runningEra : exampleProducer(runningEra)
+leptonConstr = lambda runningEra, maxEvents, startEvent : exampleProducer(runningEra, maxEvents, startEvent)

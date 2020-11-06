@@ -5,8 +5,11 @@ drop * # start with all
 keep M_ll
 keep lepton*
 keep z*
+keep muon*
+keep electron*
 
 #Existing branches to keep
+keep TrigObj_*
 
 keep Electron_pt
 keep Electron_eta

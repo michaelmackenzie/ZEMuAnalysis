@@ -10,23 +10,30 @@ isData = False
 if sys.argv[2].split('=')[1] == "True":
     isData = True
 year = sys.argv[3].split('=')[1]
-
-
+maxEvents = -1
+startEvent = 1
+if len(sys.argv) > 4: #additional parameter of max events
+    maxEvents = int(sys.argv[4])
+    print "Using maximum read events =", maxEvents
+if len(sys.argv) > 5: #additional parameter of start event
+    startEvent = int(sys.argv[5])
+    print "Using initial event =", startEvent
+    
 # p=PostProcessor(".",inputfile,"",modules=[leptonConstr(0)],provenance=True,fwkJobReport=True,outputbranchsel="cmssw_config/keep_and_drop.txt")
 if isData :
     if year == "2016" :
-        p=PostProcessor(".",inputFile,"", modules=[leptonConstr(0)],provenance=True,fwkJobReport=True,outputbranchsel="test/cmssw_config/keep_and_drop.txt")
+        p=PostProcessor(".",inputFile,"", modules=[leptonConstr(0, maxEvents, startEvent)],provenance=True,fwkJobReport=True,outputbranchsel="test/cmssw_config/keep_and_drop.txt")
     elif year == "2017" :
-        p=PostProcessor(".",inputFile,"", modules=[leptonConstr(1)],provenance=True,fwkJobReport=True,outputbranchsel="test/cmssw_config/keep_and_drop.txt")
+        p=PostProcessor(".",inputFile,"", modules=[leptonConstr(1, maxEvents, startEvent)],provenance=True,fwkJobReport=True,outputbranchsel="test/cmssw_config/keep_and_drop.txt")
     elif year == "2018" :
-        p=PostProcessor(".",inputFile,"", modules=[leptonConstr(2)],provenance=True,fwkJobReport=True,outputbranchsel="test/cmssw_config/keep_and_drop.txt")
+        p=PostProcessor(".",inputFile,"", modules=[leptonConstr(2, maxEvents, startEvent)],provenance=True,fwkJobReport=True,outputbranchsel="test/cmssw_config/keep_and_drop.txt")
 else :
     if year == "2016" :
-        p=PostProcessor(".",inputFile,"", modules=[leptonConstr(0),puAutoWeight_2016()],provenance=True,fwkJobReport=True,outputbranchsel="test/cmssw_config/keep_and_drop.txt")
+        p=PostProcessor(".",inputFile,"", modules=[leptonConstr(0, maxEvents, startEvent),puAutoWeight_2016()],provenance=True,fwkJobReport=True,outputbranchsel="test/cmssw_config/keep_and_drop.txt")
     elif year == "2017" :
-        p=PostProcessor(".",inputFile,"", modules=[leptonConstr(1),puAutoWeight_2017()],provenance=True,fwkJobReport=True,outputbranchsel="test/cmssw_config/keep_and_drop.txt")
+        p=PostProcessor(".",inputFile,"", modules=[leptonConstr(1, maxEvents, startEvent),puAutoWeight_2017()],provenance=True,fwkJobReport=True,outputbranchsel="test/cmssw_config/keep_and_drop.txt")
     elif year == "2018" :
-        p=PostProcessor(".",inputFile,"", modules=[leptonConstr(2),puAutoWeight_2018()],provenance=True,fwkJobReport=True,outputbranchsel="test/cmssw_config/keep_and_drop.txt")
+        p=PostProcessor(".",inputFile,"", modules=[leptonConstr(2, maxEvents, startEvent),puAutoWeight_2018()],provenance=True,fwkJobReport=True,outputbranchsel="test/cmssw_config/keep_and_drop.txt")
 
 p.run()
 
