@@ -30,11 +30,11 @@ def cmdline(command):
 
 class JobConfig():
     '''Class for storing configuration for each dataset'''
-    def __init__(self, dataset, nEvtPerJobIn1e6, year, isData, suffix):
+    def __init__(self, dataset, nEvtPerJobIn1e6, year, isData, suffix, inputDBS = "global"):
         self._dataset   = dataset
         self._nEvtPerJobIn1e6 = nEvtPerJobIn1e6
-
-
+        self._inputDBS = inputDBS
+        
         # need to pass to executable
         self._year      = year
         self._isData    = isData
@@ -59,9 +59,12 @@ class BatchMaster():
         # query the root files using das commandline tool
         print "das query files"
         dasQuery_outFile = 'dasQuery_{}.txt'.format(cfg._suffix)
-        dasQuery_command = 'das_client -query="file dataset={}" > {}'.format(cfg._dataset, dasQuery_outFile)
+        if cfg._inputDBS == "global" :
+            dasQuery_command = 'das_client -query="file dataset={}" > {}'.format(cfg._dataset, dasQuery_outFile)
+        else :
+            dasQuery_command = 'das_client -query="file dataset={} instance=prod/{}" > {}'.format(cfg._dataset, cfg._inputDBS, dasQuery_outFile)
         os.system(dasQuery_command)
-
+        
         ftxt = open(dasQuery_outFile)
         fileList = ["root://cmsxrootd.fnal.gov/" + f.strip() for f in ftxt.readlines()]
         ftxt.close()
@@ -72,7 +75,10 @@ class BatchMaster():
             
         # query number of events in the dataset
         print "das query number of events"
-        output  = cmdline('das_client -query="dataset={} | grep dataset.nevents " '.format(cfg._dataset))
+        if cfg._inputDBS == "global":
+            output  = cmdline('das_client -query="dataset={} | grep dataset.nevents " '.format(cfg._dataset))
+        else :
+            output  = cmdline('das_client -query="dataset={} instance=prod/{} | grep dataset.nevents " '.format(cfg._dataset, cfg._inputDBS))
         nEvents = -1
         for l in output.splitlines():
             try: nEvents = int(l); break

@@ -30,18 +30,18 @@ if doLocal:
 else:
     if isData :
         if year == "2016" :
-            p=PostProcessor(".",inputFiles(),modules=[leptonConstr(0, -1, 1)],provenance=True,fwkJobReport=True,jsonInput=runsAndLumis(),outputbranchsel="cmssw_config/keep_and_drop.txt")
+            p=PostProcessor(".",inputFiles(),modules=[leptonConstr(0, -1, 1, 1)],provenance=True,fwkJobReport=True,jsonInput=runsAndLumis(),outputbranchsel="cmssw_config/keep_and_drop.txt")
         elif year == "2017" :
-            p=PostProcessor(".",inputFiles(),modules=[leptonConstr(1, -1, 1)],provenance=True,fwkJobReport=True,jsonInput=runsAndLumis(),outputbranchsel="cmssw_config/keep_and_drop.txt")
+            p=PostProcessor(".",inputFiles(),modules=[leptonConstr(1, -1, 1, 1)],provenance=True,fwkJobReport=True,jsonInput=runsAndLumis(),outputbranchsel="cmssw_config/keep_and_drop.txt")
         elif year == "2018" :
-            p=PostProcessor(".",inputFiles(),modules=[leptonConstr(2, -1, 1)],provenance=True,fwkJobReport=True,jsonInput=runsAndLumis(),outputbranchsel="cmssw_config/keep_and_drop.txt")
+            p=PostProcessor(".",inputFiles(),modules=[leptonConstr(2, -1, 1, 1)],provenance=True,fwkJobReport=True,jsonInput=runsAndLumis(),outputbranchsel="cmssw_config/keep_and_drop.txt")
     else :
         if year == "2016" :
-            p=PostProcessor(".",inputFiles(),modules=[leptonConstr(0, -1, 1),puAutoWeight_2016()],provenance=True,fwkJobReport=True,jsonInput=runsAndLumis(),outputbranchsel="cmssw_config/keep_and_drop.txt")
+            p=PostProcessor(".",inputFiles(),modules=[leptonConstr(0, -1, 1, 0),puAutoWeight_2016()],provenance=True,fwkJobReport=True,jsonInput=runsAndLumis(),outputbranchsel="cmssw_config/keep_and_drop.txt")
         elif year == "2017" :
-            p=PostProcessor(".",inputFiles(),modules=[leptonConstr(1, -1, 1),puAutoWeight_2017()],provenance=True,fwkJobReport=True,jsonInput=runsAndLumis(),outputbranchsel="cmssw_config/keep_and_drop.txt")
+            p=PostProcessor(".",inputFiles(),modules=[leptonConstr(1, -1, 1, 0),puAutoWeight_2017()],provenance=True,fwkJobReport=True,jsonInput=runsAndLumis(),outputbranchsel="cmssw_config/keep_and_drop.txt")
         elif year == "2018" :
-            p=PostProcessor(".",inputFiles(),modules=[leptonConstr(2, -1, 1),puAutoWeight_2018()],provenance=True,fwkJobReport=True,jsonInput=runsAndLumis(),outputbranchsel="cmssw_config/keep_and_drop.txt")
+            p=PostProcessor(".",inputFiles(),modules=[leptonConstr(2, -1, 1, 0),puAutoWeight_2018()],provenance=True,fwkJobReport=True,jsonInput=runsAndLumis(),outputbranchsel="cmssw_config/keep_and_drop.txt")
 
 p.run()
 

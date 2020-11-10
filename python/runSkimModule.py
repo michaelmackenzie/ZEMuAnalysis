@@ -8,10 +8,11 @@ from PhysicsTools.NanoAODTools.postprocessing.framework.datamodel import Object
 from PhysicsTools.NanoAODTools.postprocessing.framework.eventloop import Module
 
 class exampleProducer(Module):
-    def __init__(self,runningEra, maxEvents, startEvent):
+    def __init__(self,runningEra, maxEvents, startEvent, isData):
         self.runningEra = runningEra
         self.maxEvents = maxEvents #for quick local testing
         self.startEvent = startEvent
+        self.isData = isData
         self.seen = 0
         self.mutau = 0
         self.etau = 0
@@ -19,6 +20,7 @@ class exampleProducer(Module):
         self.mumu = 0
         self.ee = 0
         self.failTrigMap = 0
+        self.negativeEvents = 0
         self.isDY = False
         if self.maxEvents == 1:
             self.verbose = 20
@@ -32,7 +34,7 @@ class exampleProducer(Module):
     def beginJob(self):
         pass
     def endJob(self):
-        print "Saw", self.emu, "e+mu,", self.etau,"e+tau,", self.mutau, "mu+tau,", self.mumu, "mu+mu, and", self.ee, "ee","from",(self.seen-self.startEvent),"events processed"
+        print "Saw", self.emu, "e+mu,", self.etau,"e+tau,", self.mutau, "mu+tau,", self.mumu, "mu+mu, and", self.ee, "ee","from",(self.seen-self.startEvent+1),"events processed"
         print "Found", self.failTrigMap, "events that failed trigger matching requirements"
         pass
     def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
@@ -54,6 +56,16 @@ class exampleProducer(Module):
         self.isDY = ("DYJetsToLL" in name) or ("ZMuTau" in name) or ("ZETau" in name) or ("ZEMu" in name)
         
     def endFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
+        outputFile.cd()
+        h = ROOT.TH1D("events", "events", 10, 1, 11)
+        h.Fill(1, self.seen)
+        h.Fill(2, self.emu)
+        h.Fill(3, self.etau)
+        h.Fill(4, self.mutau)
+        h.Fill(5, self.mumu)
+        h.Fill(6, self.ee)
+        h.Fill(10, self.negativeEvents)
+        h.Write()
         pass
     # get generator info for Z boson
     def genZInfo(self, event):
@@ -182,8 +194,12 @@ class exampleProducer(Module):
         ############################
         #     Begin event loop     #
         ############################
-
+        #increment event count
         self.seen = self.seen + 1
+        #record negative events for proper normalization
+        if self.isData == 0 and event.genWeight < 0.:
+            self.negativeEvents = self.negativeEvents + 1
+
         if(self.startEvent > self.seen): #continue until reach desired starting point
             return False
         if(self.startEvent > 1 and self.startEvent == self.seen):
@@ -207,7 +223,8 @@ class exampleProducer(Module):
         ############################
         #    Trigger parameters    #
         ############################
-
+        doTriggerMatching = True #whether or not to require the matched trigger
+        
         minmupt     = 25. # muon trigger
         minelept    = 33. # electron trigger
         if self.runningEra == 0 :
@@ -402,47 +419,53 @@ class exampleProducer(Module):
 
         if nElectrons + nMuons + nTaus < 2:
             return False
+
+        ### Add lepton trigger requiring that lepton ###
+        electronTriggered = electronTriggered and nElectrons > 0
+        muonTriggered = muonTriggered and nMuons > 0
+        if not muonTriggered and not electronTriggered:
+            return False
         
         ####################################
         #  Check leptons against triggers  #
         ####################################
-        
-        if muonTriggered:
-            muonTrig = False
-            # muonLoTrig = False
-            # muonHiTrig = False
-            #check if a selected muon matches with the muon triggers of interest
-            if (self.verbose > 1 and self.seen % 100 == 0) or (self.verbose > 2 and self.seen % 10 == 0) or self.verbose > 9:
-                print "Event", self.seen, ": printing muon trigger info..."
-            for i_muon in range(nMuons):
-                hasFired = self.check_trig(trigObjs, muons[muon_dict[i_muon]], True)
-                if hasFired > 0: # 1 = low, 2 = high, 3 = both
-                    muonTrig  = True
-                    # muonLoTrig = muonLoTrig or hasFired == 1 or hasFired == 3
-                    # muonHiTrig = muonHiTrig or hasFired > 1
+        if doTriggerMatching:
+            if muonTriggered:
+                muonTrig = False
+                # muonLoTrig = False
+                # muonHiTrig = False
+                #check if a selected muon matches with the muon triggers of interest
+                if (self.verbose > 1 and self.seen % 100 == 0) or (self.verbose > 2 and self.seen % 10 == 0) or self.verbose > 9:
+                    print "Event", self.seen, ": printing muon trigger info..."
+                for i_muon in range(nMuons):
+                    hasFired = self.check_trig(trigObjs, muons[muon_dict[i_muon]], True)
+                    if hasFired > 0: # 1 = low, 2 = high, 3 = both
+                        muonTrig  = True
+                        # muonLoTrig = muonLoTrig or hasFired == 1 or hasFired == 3
+                        # muonHiTrig = muonHiTrig or hasFired > 1
                     if (self.verbose > 1 and self.seen % 100 == 0) or (self.verbose > 2 and self.seen % 10 == 0) or self.verbose > 9:
                         print " Muon",i_muon,"has hasFired =",hasFired
-            if self.verbose > 0 and ((muonTriggered and not muonTrig) ): #or (muonLowTriggered and not muonLoTrig) or (muonHighTriggered and not muonHiTrig)) :
-                print "Event", self.seen, "has muon triggered values changed after mapping! There are", nMuons, "muons..."
-                print " Muon triggers before: trig =", muonTriggered, "low =", muonLowTriggered, "high =", muonHighTriggered
-                print " Muon triggers mapped: trig =", muonTrig #, "low =", muonLoTrig, "high =", muonHiTrig
-                print " Electron triggered =", electronTriggered
-            muonTriggered     = muonTrig
-            # muonLowTriggered  = muonLowTriggered  and muonLoTrig
-            # muonHighTriggered = muonHighTriggered and muonHiTrig
-        if electronTriggered:
-            electronTriggered = False
-            if (self.verbose > 1 and self.seen % 100 == 0) or (self.verbose > 2 and self.seen % 10 == 0) or self.verbose > 9:
-                print "Event", self.seen, ": printing electron trigger info..."
-            for i_elec in range(nElectrons):
-                hasFired = self.check_trig(trigObjs, electrons[elec_dict[i_elec]], False)
-                if hasFired > 0:
-                    electronTriggered = True
-                    break
+                if self.verbose > 0 and ((muonTriggered and not muonTrig) ): #or (muonLowTriggered and not muonLoTrig) or (muonHighTriggered and not muonHiTrig)) :
+                    print "Event", self.seen, "has muon triggered values changed after mapping! There are", nMuons, "muons..."
+                    print " Muon triggers before: trig =", muonTriggered, "low =", muonLowTriggered, "high =", muonHighTriggered
+                    print " Muon triggers mapped: trig =", muonTrig #, "low =", muonLoTrig, "high =", muonHiTrig
+                    print " Electron triggered =", electronTriggered
+                muonTriggered     = muonTrig
+                # muonLowTriggered  = muonLowTriggered  and muonLoTrig
+                # muonHighTriggered = muonHighTriggered and muonHiTrig
+            if electronTriggered:
+                electronTriggered = False
                 if (self.verbose > 1 and self.seen % 100 == 0) or (self.verbose > 2 and self.seen % 10 == 0) or self.verbose > 9:
-                    print " Electron", i_elec, "has hasFired =", hasFired
-            if self.verbose > 0 and not electronTriggered:
-                print "Event", self.seen, "has electron triggered value changed after mapping! There are", nElectrons, "electrons..."
+                    print "Event", self.seen, ": printing electron trigger info..."
+                for i_elec in range(nElectrons):
+                    hasFired = self.check_trig(trigObjs, electrons[elec_dict[i_elec]], False)
+                    if hasFired > 0:
+                        electronTriggered = True
+                        break
+                    if (self.verbose > 1 and self.seen % 100 == 0) or (self.verbose > 2 and self.seen % 10 == 0) or self.verbose > 9:
+                        print " Electron", i_elec, "has hasFired =", hasFired
+                if self.verbose > 0 and not electronTriggered:
+                    print "Event", self.seen, "has electron triggered value changed after mapping! There are", nElectrons, "electrons..."
         
         if not electronTriggered and not muonTriggered :
             self.failTrigMap = self.failTrigMap + 1
@@ -716,4 +739,4 @@ class exampleProducer(Module):
         return True
 
 # define modules using the syntax 'name = lambda : constructor' to avoid having them loaded when not needed
-leptonConstr = lambda runningEra, maxEvents, startEvent : exampleProducer(runningEra, maxEvents, startEvent)
+leptonConstr = lambda runningEra, maxEvents, startEvent, isData : exampleProducer(runningEra, maxEvents, startEvent, isData)
