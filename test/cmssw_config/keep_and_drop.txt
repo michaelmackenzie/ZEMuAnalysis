@@ -47,6 +47,7 @@ keep Jet_jetId
 keep Jet_puId
 keep Jet_btagDeepB
 keep Jet_btagCMVA
+keep Jet_partonFlavour
 
 keep Photon_pt
 keep Photon_eta

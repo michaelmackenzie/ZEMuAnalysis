@@ -8,11 +8,12 @@ from PhysicsTools.NanoAODTools.postprocessing.framework.datamodel import Object
 from PhysicsTools.NanoAODTools.postprocessing.framework.eventloop import Module
 
 class exampleProducer(Module):
-    def __init__(self,runningEra, maxEvents, startEvent, isData):
+    def __init__(self,runningEra, maxEvents, startEvent, isData, saveZ):
         self.runningEra = runningEra
         self.maxEvents = maxEvents #for quick local testing
         self.startEvent = startEvent
         self.isData = isData
+        self.isDY = saveZ
         self.seen = 0
         self.mutau = 0
         self.etau = 0
@@ -21,7 +22,6 @@ class exampleProducer(Module):
         self.ee = 0
         self.failTrigMap = 0
         self.negativeEvents = 0
-        self.isDY = False
         if self.maxEvents == 1:
             self.verbose = 20
         elif self.maxEvents > 0 and self.maxEvents < 10:
@@ -53,18 +53,19 @@ class exampleProducer(Module):
         self.out.branch("electronTrigger",  "O"); # fired electron trigger
         name = inputFile.GetName()
         # data samples from Z to ll (include LFV just for Z info)
-        self.isDY = ("DYJetsToLL" in name) or ("ZMuTau" in name) or ("ZETau" in name) or ("ZEMu" in name)
+        # self.isDY = self.isDY or ("DYJetsToLL" in name) or ("ZMuTau" in name) or ("ZETau" in name) or ("ZEMu" in name)
+        print "Using isDY =", self.isDY
         
     def endFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         outputFile.cd()
         h = ROOT.TH1D("events", "events", 10, 1, 11)
-        h.Fill(1, self.seen)
-        h.Fill(2, self.emu)
-        h.Fill(3, self.etau)
-        h.Fill(4, self.mutau)
-        h.Fill(5, self.mumu)
-        h.Fill(6, self.ee)
-        h.Fill(10, self.negativeEvents)
+        h.Fill(1.5, self.seen)
+        h.Fill(2.5, self.emu)
+        h.Fill(3.5, self.etau)
+        h.Fill(4.5, self.mutau)
+        h.Fill(5.5, self.mumu)
+        h.Fill(6.5, self.ee)
+        h.Fill(10.5, self.negativeEvents)
         h.Write()
         pass
     # get generator info for Z boson
@@ -122,6 +123,7 @@ class exampleProducer(Module):
             if leponeindex < 0 or leptwoindex < 0:
                 print "Failed to find leptons coming from particle 0!"
             else :
+                print "Z info replacement was successful!"
                 lv1 = ROOT.TLorentzVector()
                 lv1.SetPtEtaPhiM(genParts[leponeindex].pt, genParts[leponeindex].eta, genParts[leponeindex].phi, genParts[leponeindex].mass)
                 lv2 = ROOT.TLorentzVector()
@@ -199,7 +201,6 @@ class exampleProducer(Module):
         #record negative events for proper normalization
         if self.isData == 0 and event.genWeight < 0.:
             self.negativeEvents = self.negativeEvents + 1
-
         if(self.startEvent > self.seen): #continue until reach desired starting point
             return False
         if(self.startEvent > 1 and self.startEvent == self.seen):
@@ -223,7 +224,7 @@ class exampleProducer(Module):
         ############################
         #    Trigger parameters    #
         ############################
-        doTriggerMatching = True #whether or not to require the matched trigger
+        doTriggerMatching = False #whether or not to require the matched trigger
         
         minmupt     = 25. # muon trigger
         minelept    = 33. # electron trigger
@@ -233,7 +234,7 @@ class exampleProducer(Module):
             minmupt = 28. #higher pT muon trigger in 2017
 
         ## Non-trigger lepton parameters ##
-        minmuptlow  = 5.
+        minmuptlow  = 10.
         mineleptlow = 10.
         mintaupt = 20.
 
@@ -739,4 +740,4 @@ class exampleProducer(Module):
         return True
 
 # define modules using the syntax 'name = lambda : constructor' to avoid having them loaded when not needed
-leptonConstr = lambda runningEra, maxEvents, startEvent, isData : exampleProducer(runningEra, maxEvents, startEvent, isData)
+leptonConstr = lambda runningEra, maxEvents, startEvent, isData, saveZ : exampleProducer(runningEra, maxEvents, startEvent, isData, saveZ)

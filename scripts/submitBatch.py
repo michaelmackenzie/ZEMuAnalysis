@@ -465,10 +465,10 @@ samplesDict['2018_qcd'] = [
 # -----------------------------
 # submit to batch
 # -----------------------------
-samplesToSubmit = ["2017_top", "2017_z", "2017_w", "2017_vv", "2017_qcd"]
-# samplesToSubmit = samplesDict.keys()
+# samplesToSubmit = ["2017_z"] #["2017_top", "2017_z", "2017_w", "2017_vv", "2017_qcd"]
+samplesToSubmit = samplesDict.keys()
 samplesToSubmit.sort()
-doYears = ["2017"] #["2016" , "2017", "2018" ]
+doYears = ["2016", "2018" ]
 configs = []
 
 for s in samplesToSubmit:

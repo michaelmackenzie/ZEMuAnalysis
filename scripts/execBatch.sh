@@ -10,7 +10,7 @@ SUFFIX=$4
 OUTDIR=$5
 ANALYZER=$6
 
-if [ $3 ]
+if [[ "$3" == "True" ]]
 then
     ISDATA="data"
 else
@@ -55,7 +55,7 @@ echo "Working dir: "
 pwd
 mv ../../input_${SUFFIX}_${COUNT}.txt ./
 echo "Input file list: "
-cat input_${SUFFIX}_${COUNT}.txt
+cat $INPUT_TXT_FILENAME
 
 
 [ ! -d outDir ] && mkdir outDir
@@ -67,33 +67,23 @@ while IFS= read NANOAOD
 do
     # xrdcp to local src folder first
     # analyzer is upto 100x-200x faster than xrd streaming. Ziheng
+    echo "Copying ${NANOAOD} locally"
     xrdcp ${NANOAOD} ./temp.root
-    python python/${ANALYZER}.py temp.root isData=${ISDATA} year=${YEAR}
-    # --max-entries=30000
+    saveZ="False"
+    if [[ ${NANOAOD} == *"DYJets"* ]] || [[ ${NANOAOD} == *"ZEMu"* ]] ||  [[ ${NANOAOD} == *"ZETau"* ]] ||  [[ ${NANOAOD} == *"ZMuTau"* ]]
+    then
+	saveZ="True"
+    fi
+    echo "Save Z info = ${saveZ}"
+    python python/${ANALYZER}.py temp.root isData=${ISDATA} year=${YEAR} saveZ=${saveZ}
     mv tree.root outDir/tree_${COUNTER}.root
     rm *.root
     COUNTER=$((COUNTER+1))
 
 done <$INPUT_TXT_FILENAME
 
-
-
-# comment by Ziheng
-# this access the root file via xrd file streaming service
-# analyzing events is about 20-200 events/second
-# this is slow. you need to xrdcp root to local node first instead of streaming it in fly.
-# python PhysicsAnalysis/NanoAODAnalysis/python/${ANALYZER}.py outDir ${INPUT_TXT_FILENAME} --year=${YEAR} --isData=${ISDATA} 
-
 ls
 ls outDir/
-# --max-entries=10000
-# 
-
-### Copy output and cleanup ###
-# cp output_${DATANAME}_${COUNT}.root ${_CONDOR_SCRATCH_DIR} 
-
-
-
 
 ### Copy output and cleanup ###
 FILE=output_${SUFFIX}_${COUNT}.root
