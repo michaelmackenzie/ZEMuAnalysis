@@ -13,8 +13,9 @@ from PhysicsTools.NanoAODTools.postprocessing.framework.eventloop import Module
 ROOT.PyConfig.IgnoreCommandLineOptions = True
 
 class HLTElectronFilter(Module):
-    def __init__(self):
+    def __init__(self,runningEra):
 	self.writeHistFile=True
+        self.runningEra = runningEra
 
     def beginJob(self,histFile=None,histDirName=None):
 	Module.beginJob(self,histFile,histDirName)
@@ -28,9 +29,9 @@ class HLTElectronFilter(Module):
         muons = Collection(event, "Muon")
         # check if would pass muon trigger requirements
         for index in range(len(muons)):
-            if ((HLT.IsoMu24 and muons[index].pt > 25. or #really should only check this in 2016/2018
-                 HLT.IsoMu27 and muons[index].pt > 28. or #really should only check this in 2017
-                 HLT.Mu50 and muons[index].pt > 50.) and
+            if (((HLT.IsoMu24 and muons[index].pt > 25. and self.runningEra != 1) or
+                 (HLT.IsoMu27 and muons[index].pt > 28. and self.runningEra == 1) or
+                 (HLT.Mu50 and muons[index].pt > 50.)) and
                 muons[index].tightId and muons[index].pfRelIso04_all < 0.15):
                 return False
         # fails muon trigger requirements, so must have passed only electron trigger requirements
@@ -57,9 +58,11 @@ class SignalFilter(Module):
 p = argparse.ArgumentParser(description='Select whether to download MC or data')
 p.add_argument('isData_option', help='Type <<MC>> or <<data>>')
 p.add_argument('year_option', help='Type <<2016>>, <<2017>> or <<2018>>')
+p.add_argument('tag_option', help='Type e.g. <<LFVAnalysis>>')
 args = p.parse_args()
 
-# Switch from muon to electron channel
+onlySignalMC = False
+tag="LFVAnalysis"
 if args.isData_option == "MC":
     isData = False
 elif args.isData_option == "data":
@@ -68,6 +71,11 @@ else:
     print "Option one should be MC or data! Defaulting to MC"
     isData = False
 year = args.year_option
+if year != "2016" and year != "2017" and year != "2018":
+    print "Option two should be 2016, 2017, or 2018! Defaulting to 2016"
+    year = "2016"
+if args.tag_option != "":
+    tag=args.tag_option
 #---------------------------------#
 
 if not os.path.exists("rootfiles"):
@@ -79,7 +87,7 @@ if not os.path.exists("rootfiles/latest_production/MC"):
 if not os.path.exists("rootfiles/latest_production/dataprocess"):
     os.makedirs("rootfiles/latest_production/dataprocess")
 
-print "Processing ", args.isData_option, " for year ", year
+print "Processing", args.isData_option, "for year", year, "with tag", tag
 
 if not isData :
     dir_input = "crab_projects/samples_MC_" + year + "/"
@@ -99,11 +107,22 @@ if not isData and not os.path.exists(dir_output_sig):
 
 if isData and not os.path.exists(dir_output_data):
     os.makedirs(dir_output_data)
-    
 for dirname in list_dirs:
 
     print "Processing sample dir " + dirname
+    if "ZEMuAnalysis" in dirname:
+        print "Old project name still used in " + dirname +"! Continuing..."
+        continue
+    if not tag in dirname:
+        print "Skipping dataset!"
+        continue
+    
+    isSignal = "EMu" in dirname or "ETau" in dirname or "MuTau" in dirname
 
+    if onlySignalMC and not isSignal:
+        print "Skipping background MC!"
+        continue
+    
     n_jobs_command = "crab status -d " + dir_input + dirname + " | grep status: " + "| awk " + """'{split($0,array,"/") ; print array[2]}'""" + "| sed 's/.$//'"
     n_jobs = int(subprocess.check_output(n_jobs_command, shell=True))
 
@@ -118,9 +137,8 @@ for dirname in list_dirs:
     else :
         print "Trees are already present, skipping getoutput command!"
     
-    samplename = dirname.split("crab_" + year + "_LFVAnalysis_")
+    samplename = dirname.split("crab_" + year + "_" + tag + "_")
 
-    isSignal = "EMu" in dirname or "ETau" in dirname or "MuTau" in dirname
     if isSignal:
         hadd_command = "../scripts/haddnano.py " + dir_output_sig + "LFVAnalysis_" + samplename[1] + "_" + year + ".root " + dir_input + dirname + "/results/*.root"
     elif isData:
@@ -151,8 +169,15 @@ if isData:
 
     os.system(hadd_command)
     os.system(rm_command)
+    #for HLTElectronFilter, pass running era
+    if year == "2016" :
+        runningEra = 0
+    elif year == "2017" :
+        runningEra = 1
+    else :
+        runningEra = 2
 
-    p_HLT=PostProcessor(".",[dir_output_data + "LFVAnalysis_SingleEle_DoubleTrig_" + year + ".root "],modules=[HLTElectronFilter()],haddFileName=dir_output_data + "LFVAnalysis_SingleEle_" + year + ".root ")
+    p_HLT=PostProcessor(".",[dir_output_data + "LFVAnalysis_SingleEle_DoubleTrig_" + year + ".root "],modules=[HLTElectronFilter(runningEra)],haddFileName=dir_output_data + "LFVAnalysis_SingleEle_" + year + ".root ")
     p_HLT.run()
 
     rm_command = "rm -rf " + dir_output_data + "LFVAnalysis_SingleEle_DoubleTrig_" + year + ".root "
