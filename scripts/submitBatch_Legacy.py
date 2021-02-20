@@ -162,10 +162,13 @@ samplesDict['2016_w'] = [
 
 # z
 samplesDict['2016_z'] = [
-    # /DYJetsToLL_M-50_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer19UL16NanoAODv2-106X_mcRun2_asymptotic_v15-v1/NANOAODSIM
     bm.JobConfig(
-        dataset='/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer19UL16NanoAODv2-106X_mcRun2_asymptotic_v15-v1/NANOAODSIM',
+        dataset='/DYJetsToLL_M-50_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/RunIISummer16NanoAODv7-PUMoriond17_Nano02Apr2020_102X_mcRun2_asymptotic_v8_ext1-v1/NANOAODSIM',
         nEvtPerJobIn1e6=nEvtPerJob, year="2016", isData=False, suffix='LFVAnalysis_DY50_2016'),
+
+    bm.JobConfig(
+        dataset='/DYJetsToLL_M-50_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/RunIISummer16NanoAODv7-PUMoriond17_Nano02Apr2020_102X_mcRun2_asymptotic_v8_ext2-v1/NANOAODSIM',
+        nEvtPerJobIn1e6=nEvtPerJob, year="2016", isData=False, suffix='LFVAnalysis_DY50-ext_2016'),    
 ]
 
 # di(tri)-boson

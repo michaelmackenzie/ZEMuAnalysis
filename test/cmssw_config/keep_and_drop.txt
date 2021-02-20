@@ -7,6 +7,9 @@ keep lepton*
 keep z*
 keep muon*
 keep electron*
+keep nElectrons
+keep nMuons
+keep nTaus
 
 #Existing branches to keep
 keep TrigObj_*
@@ -34,7 +37,6 @@ keep Muon_charge
 keep Muon_looseId
 keep Muon_mediumId
 keep Muon_tightId
-keep Muon_triggerIdLoose
 keep Muon_genPartFlav
 
 keep FsrPhoton_*
@@ -89,7 +91,15 @@ keep HLT_Ele27_WPTight_Gsf*
 keep HLT_Ele32_WPTight_Gsf*
 keep HLT_Ele35_WPTight_Gsf*
 
+keep Flag_*
 keep genWeight*
 keep puWeight*
 
 keep PV_npvs*
+keep Pileup_nPU
+keep Pileup_nTrueInt
+
+#Add event period information
+keep run
+keep luminosityBlock
+keep event
